@@ -217,18 +217,21 @@ class VariationalInference(nn.Module):
 # ---------------------------------------------------------------------
 def main():
     import torchvision
+    import argparse
     from torchvision.datasets import MNIST
     from torchvision.transforms import ToTensor
 
-    # Hyperparams
-    lr = 1e-3
-    num_epochs = 10
-    batch_size = 64
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--boson_sampler_params",
+        default="true",
+        choices=["true", "false"],
+        help="When 'true' or not given, we use the Boson Sampler. When 'false', we use Gaussian."
+    )
+    args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # Boson Sampler Params
-    boson_sampler_params = {
+    # Example Boson Sampler parameters
+    boson_sampler_cfg = {
         "input_state": [1, 0, 1, 0, 1, 0, 1, 0],
         "tbi_params": {
             "input_loss": 0.0,
@@ -246,7 +249,21 @@ def main():
         "n_tiling": 1
     }
 
-    # Create training data
+    # If user does:  --boson_sampler_params false  => use Gaussian
+    # Else (true / not given) => use Boson Sampler
+    if args.boson_sampler_params == "false":
+        boson_params_to_use = None
+        print(">> Using standard Gaussian prior.")
+    else:
+        boson_params_to_use = boson_sampler_cfg
+        print(">> Using Boson Sampler as prior.")
+    
+    # Hyperparams
+    lr = 1e-3
+    num_epochs = 10
+    batch_size = 64
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_data = MNIST(root=".", train=True, transform=ToTensor(), download=True)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
