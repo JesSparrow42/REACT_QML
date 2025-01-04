@@ -9,6 +9,8 @@ import numpy as np
 
 # Define your ReparameterizedDiagonalGaussian
 class ReparameterizedDiagonalGaussian(Distribution):
+    arg_constraints = {}
+    
     def __init__(self, mu: torch.Tensor, log_sigma: torch.Tensor):
         super().__init__()
         self.mu = mu
