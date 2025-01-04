@@ -76,7 +76,8 @@ class VariationalAutoencoder(nn.Module):
     def observation_model(self, z: torch.Tensor) -> Distribution:
         px_logits = self.decoder(z)
         px_logits = px_logits.view(-1, *self.input_shape)
-        return Bernoulli(logits=px_logits)
+        return Bernoulli(logits=px_logits, validate_args=False)
+
 
     def forward(self, x: torch.Tensor):
         x = x.view(x.size(0), -1)
