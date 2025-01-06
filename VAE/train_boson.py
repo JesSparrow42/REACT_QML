@@ -231,7 +231,7 @@ def main():
     args = parser.parse_args()
 
     # Example Boson Sampler parameters
-    boson_sampler_cfg = {
+    boson_sampler_params = {
         "input_state": [1, 0, 1, 0, 1, 0, 1, 0],
         "tbi_params": {
             "input_loss": 0.0,
@@ -255,7 +255,7 @@ def main():
         boson_params_to_use = None
         print(">> Using standard Gaussian prior.")
     else:
-        boson_params_to_use = boson_sampler_cfg
+        boson_params_to_use = boson_sampler_params
         print(">> Using Boson Sampler as prior.")
     
     # Hyperparams
