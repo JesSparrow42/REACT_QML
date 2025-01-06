@@ -1,0 +1,105 @@
+End-User License Agreement for the PT Series Software Development Kit
+(Version 1.1 February 2023)
+
+IMPORTANT: DO NOT DOWNLOAD, INSTALL OR USE ANY ORCA SOFTWARE OR DOCUMENTATION UNTIL YOU HAVE READ AND AGREED TO THE TERMS AND CONDITIONS OF THIS END-USER LICENCE AGREEMENT.
+
+BY CLICKING THE CHECKBOX TO INDICATE YOU HAVE READ, UNDERSTOOD AND ACCEPT THE END-USER LICENCE AGREEMENT WHEN REGISTERING FOR ACCESS TO THE REPOSITORY CONTAINING THE SOFTWARE (as defined below) OR BY DOWNLOADING, INSTALLING OR OTHERWISE USING THE SOFTWARE, YOU CONFIRM IN A LEGALLY BINDING WAY THAT YOU AS THE ORGANISATION FOR WHICH THE SOFTWARE IS DOWNLOADED OR ACQUIRED HAVE AUTHORISED THE NATURAL PERSON ACCEPTING THIS END-USER LICENCE AGREEMENT FOR AND ON BEHALF OF YOU. FURTHERMORE, YOU CONSENT TO BE BOUND BY THE TERMS AND CONDITIONS OF THIS END-USER LICENCE AGREEMENT AND AGREE THAT THIS LICENCE AGREEMENT IS ENFORCEABLE LIKE ANY WRITTEN NEGOTIATED AGREEMENT SIGNED BY YOU. IF YOU DO NOT AGREE TO ALL OF THE TERMS AND CONDITIONS OF THIS END-USER LICENCE AGREEMENT, CANCEL THE INSTALLATION OF THE SOFTWARE AND DO NOT INSTALL THE SOFTWARE.
+
+ORCA MAY MAKE CHANGES TO THESE TERMS FROM TIME TO TIME. WHEN WE DO, WE WILL REVISE THE “LAST UPDATED” DATE GIVEN ABOVE. THE THEN-CURRENT VERSION OF THESE TERMS WILL SUPERSEDE ALL EARLIER VERSIONS. YOU AGREE THAT YOUR CONTINUED USE OF ORCA SOFTWARE AFTER SUCH CHANGES HAVE BEEN PUBLISHED TO THE ORCA SOFTWARE WILL CONSTITUTE YOUR ACCEPTANCE OF SUCH REVISED TERMS.
+
+This End-User Licence Agreement ("EULA") is a legal agreement between You (“You” or “End-User”) and ORCA Computing Limited (“ORCA”). ORCA Computing Limited is a company incorporated and registered in England and Wales with company number 12285629 whose registered office is at 30 Eastbourne Terrace, London, UK, W2 6LA.
+For the purposes of this EULA, “End-User” (“You”/ “Your”) means the organisation for which the Software is downloaded or installed and it is represented hereby that such organisation has authorized the person (“Representative”) accepting this agreement to do so on its behalf. For purposes hereof the term “organisation”, without limitation, includes any partnership, limited liability company, corporation, association, joint stock company, trust, joint venture, labour organisation, unincorporated organisation, or governmental authority. If the Software was downloaded or installed on behalf of an individual, End-User (“You”) further means such individual.
+
+This EULA governs Your acquisition and use of ORCA’s PT Series Software Development Kit directly from ORCA (at https://sdk.orcacomputing.com/ or otherwise) or indirectly through an ORCA authorized reseller or distributor.
+
+If You are entering into this EULA on behalf of a company or other legal entity, You represent that You have the authority to bind such company or other legal entity, and its affiliates, to the terms and conditions of this EULA. If You do not have such authority or if You do not agree with the terms and conditions of this EULA, do not download, install or use the Software, and you must not accept this EULA.
+
+If ORCA has a signed, written agreement (“Entity Agreement”) with a company or legal entity on behalf of whom You are entering into this EULA, then in the event that and to the extent that a discrepancy arises between the terms and conditions of this EULA and that Entity Agreement, then the terms of that Entity Agreement shall prevail.
+
+This EULA shall apply only to the Software supplied by ORCA herewith regardless of whether other software is referred to or described herein. The terms also apply to any Updates, supplements, Internet-based services, and support services for the Software, unless other terms accompany those items pursuant to an Entity Agreement. If so, the terms of the relevant Entity Agreement apply.
+
+ORCA reserves all rights not expressly granted to You under this EULA.
+
+1. The Software
+
+“Software” means the PT Series Software Development Kit including any Updates, Documentation and related materials. “Update(s)” means all upgrades, revisions, patches, enhancements, fixes, modifications, copies, additions or maintenance packs etc. “Documentation” means any technical materials that ORCA makes available to You in any form, describing the use and operation of the PT Series Software Development Kit and any Updates.
+
+The PT Series Software Development Kit is software created to facilitate user interaction with ORCA’s PT-1 System and later PT Series devices (collectively “ORCA Devices”). The PT Series Software Development Kit also includes a simulator of an ORCA Device.
+
+The Software is used for performing computations by interacting with an ORCA Device and/or the simulator.
+
+The Software is optimised for use with ORCA Devices. The PT Series Software Development Kit is written in the Python language and is provided in source code form.
+
+The Software is not tailored to comply with industry-specific regulations or to be operable on any computing hardware besides an ORCA Device.
+
+2. License Grant
+
+ORCA hereby grants You a revocable, non-sublicensable, non-transferable, non-exclusive licence (“Licence”) to download, install, and use the Software on:
+
+    any ORCA Devices that You have lawful permission to use; and
+    any devices that You own or control (collectively “User Devices”);
+
+in accordance with the terms of this EULA agreement and, to the extent applicable, subject to any restrictions provided in the Entity Agreement with the company or legal entity on behalf of whom You are entering into this EULA.
+
+This EULA will also govern any Updates provided by ORCA that replace, repair, and/or supplement the Software, unless a separate licence is provided for such Update, in which case the terms of that new licence will govern. This EULA further governs any changes or amendments to the Documentation that ORCA may make from time to time.
+
+You are not permitted, and shall ensure that Your Representative is not permitted, to share or make the Software available to third parties (unless and to the extent that You have ORCA’s prior written consent), sell, rent, lend, lease or otherwise redistribute the Software.
+
+You are not permitted, and shall ensure that Your Representative is not permitted, to edit, alter, vary, modify or otherwise change the whole or any part of the Software, except to the extent required to install or use the Software.
+
+You are not permitted, and shall ensure that Your Representative is not permitted, to imitate, duplicate, translate or adapt the Software.
+
+You are not permitted, and shall ensure that Your Representative is not permitted, to copy (excluding when expressly authorised by this EULA) the Software or portions thereof. You may create and store copies of the Software on ORCA Devices. You may create and store copies of the Software on User Devices for backup keeping under the terms of this EULA and any other terms and conditions that apply to the User Device or software used. You acknowledge that no unauthorised third parties may gain access to these copies at any time.
+
+You are not permitted, and shall ensure that Your Representative is not permitted, to remove, suppress, copy, imitate, duplicate or modify in any way any proprietary marking, including any trade marks or copyright notice, on or in the Software or which is visible during its operation or which is in any Documentation. You shall incorporate any such proprietary markings in any back-up copies of the Software.
+
+You are not permitted, and shall ensure that Your Representative is not permitted, to use the Software in any way which breaches any applicable local, national or international law.
+
+ORCA reserves the right to revoke the Licence if it believes or receives evidence of a violation of the obligations mentioned above, or if it believes or receives evidence of an attempt of such violation. Violations may be subject to prosecution and damages.
+
+ORCA reserves the right to modify the terms and conditions of licensing.
+
+Nothing in this Licence should be interpreted to restrict third party terms. When using the Software, You must ensure that You comply with applicable third-party terms and conditions.
+
+3. Intellectual Property and Ownership
+
+ORCA shall at all times retain ownership of the Software and any alterations or modifications or Updates thereof. The Software (and the copyright, and other intellectual property rights of whatever nature in the Software, including any modifications made thereto) are and shall remain the property of ORCA.
+
+ORCA reserves the right to grant licences to use the Software to third parties.
+
+4. Technical requirements of User Devices
+
+You acknowledge that, in the event that You download, install or use the Software or any part of the Software on a User Device, it is Your responsibility to determine that the User Device meets the minimum requirements of the Software and satisfies any technical requirements for installing or using the Software.
+
+5. Dependencies
+
+The Software contains dependencies on one or more open-source software packages not supplied with the Software. You are responsible for the download, installation or use of any open-source software packages. You are responsible for and hold ORCA harmless for any loss or damage which You may suffer or incur as a result of the download, installation or use of any open-source packages. You shall comply with all applicable public licences and shall indemnify without limit and hold ORCA harmless against any loss or damage which You may suffer as a result of Your breach of such terms howsoever arising. Nothing in this EULA shall oblige or authorise You to do anything which is in breach of applicable public licences.
+
+6. Warranties and Exclusion and Limitation of Liability
+
+THE SOFTWARE IS PROVIDED "AS IS" AND ORCA MAKES NO REPRESENTATION AND GIVES NO WARRANTY AS TO ITS USE OR PERFORMANCE. EXCEPT FOR ANY WARRANTY, CONDITION, REPRESENTATION OR TERM THE EXTENT TO WHICH CANNOT BE EXCLUDED OR LIMITED BY APPLICABLE LAW ORCA MAKES NO WARRANTY, CONDITION, REPRESENTATION, OR TERM (EXPRESSED OR IMPLIED, WHETHER BY STATUTE, COMMON LAW, CUSTOM, USAGE OR OTHERWISE) AS TO ANY MATTER INCLUDING, WITHOUT LIMITATION, NONINFRINGEMENT OF THIRD PARTY RIGHTS, MERCHANTABILITY, SATISFACTORY QUALITY, INTEGRATION, OR APPLICABILITY FOR A PARTICULAR PURPOSE. YOU ASSUME ALL FAULTS, AND THE ENTIRE RISK AS TO PERFORMANCE AND RESPONSIBILITY FOR SELECTING THE SOFTWARE TO ACHIEVE YOUR INTENDED RESULTS, AND FOR THE INSTALLATION OF, USE OF, AND RESULTS OBTAINED FROM THE SOFTWARE. WITHOUT LIMITING THE FOREGOING PROVISIONS, ORCA MAKES NO REPRESENTATION AND GIVES NO WARRANTY THAT THE SOFTWARE WILL BE ERROR-FREE OR FREE FROM INTERRUPTIONS OR OTHER FAILURES OR THAT THE SOFTWARE WILL MEET ANY OR ALL YOUR REQUIREMENTS WHETHER OR NOT DISCLOSED TO ORCA.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL ORCA BE LIABLE FOR ANY SPECIAL, INCIDENTAL, PUNITIVE, INDIRECT, OR CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, BUT NOT LIMITED TO, DAMAGES FOR LOSS OF PROFITS OR CONFIDENTIAL OR OTHER INFORMATION, FOR BUSINESS INTERRUPTION, FOR LOSS OF PRIVACY, FOR CORRUPTION, DAMAGE AND LOSS OF DATA OR PROGRAMS, FOR FAILURE TO MEET ANY DUTY INCLUDING ANY STATUTORY DUTY, DUTY OF GOOD FAITH OR DUTY OF REASONABLE CARE, FOR NEGLIGENCE, FOR ECONOMIC LOSS, AND FOR ANY OTHER PECUNIARY OR OTHER LOSS WHATSOEVER) ARISING OUT OF OR IN ANY WAY RELATED TO THE USE OF OR INABILITY TO USE THE SOFTWARE, THE PROVISION OF OR FAILURE TO PROVIDE SUPPORT OR OTHER SERVICES, INFORMATION, SOFTWARE, AND RELATED CONTENT THROUGH THE SOFTWARE OR OTHERWISE ARISING OUT OF THE USE OF THE SOFTWARE, OR OTHERWISE UNDER OR IN CONNECTION WITH ANY PROVISION OF THIS EULA, OR ARISING OUT OF ANY BREACH OF CONTRACT OR ANY TORT (INCLUDING NEGLIGENCE, MISREPRESENTATION, ANY STRICT LIABILITY OBLIGATION OR DUTY), OR ANY BREACH OF STATUTORY DUTY, OR ANY BREACH OF WARRANTY OF ORCA, EVEN IF ORCA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+IN THE EVENT ANY DISCLAIMER, EXCLUSION OR LIMITATION IN THIS LICENSE AGREEMENT CANNOT BE EXCLUDED OR LIMITED ACCORDING TO APPLICABLE LAW THEN ONLY THAT DISCLAIMER, EXCLUSION OR LIMITATION SHALL NOT APPLY TO YOU AND YOU CONTINUE TO BE BOUND BY ALL THE REMAINING DISCLAIMERS, EXCLUSIONS AND LIMITATIONS. 
+
+7. Term and Termination
+
+This EULA agreement is effective from the date You first (i) click the checkbox to indicate you have read, understood and accept the EULA when registering for access to the repository containing the Software; (ii) download; (iii) install; or (iv) use the Software and shall continue until terminated. You may terminate it at any time upon written notice to ORCA.
+
+It will also terminate immediately if You fail to comply with any term of this EULA agreement. Upon such termination, the licenses granted by this EULA agreement will immediately terminate and You agree to stop all access and use of the Software. The provisions that by their nature continue and survive will survive any termination of this EULA agreement.
+
+8. Governing Law
+
+This EULA agreement, and any dispute arising out of or in connection with this EULA agreement, shall be governed by and construed in accordance with the laws of England and Wales, and shall be subject to the exclusive jurisdiction of the English courts to which the Parties submit.
+
+9. Contact Information
+
+Any questions or concerns about the Software or this EULA should be directed to: support@orcacomputing.com
+
+10. Miscellaneous
+
+If any of the terms of this EULA should be or become invalid, the validity of the remaining provisions shall not be affected. Invalid terms will be replaced by valid ones formulated in a way that will achieve the primary purpose.
+
+Collateral agreements, changes and amendments are only valid if laid down in writing. The preceding clause can only be waived in writing.
+

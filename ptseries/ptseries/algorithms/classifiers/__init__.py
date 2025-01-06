@@ -1,0 +1,1 @@
+from ptseries.algorithms.classifiers.general_classifier import VariationalClassifier as VariationalClassifier
