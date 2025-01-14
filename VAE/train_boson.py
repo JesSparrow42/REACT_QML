@@ -35,8 +35,25 @@ class BosonPrior(Distribution):
         return samples
 
     def log_prob(self, z):
-        # Placeholder: returning zeros
-        return torch.zeros(z.shape[0], device=z.device)
+        """
+        Compute the log probability of z under an approximate Gaussian prior.
+        Assumes the latent space follows a standard normal distribution N(0, I).
+        """
+        # Assuming the prior follows N(0, I)
+        mean = torch.zeros_like(z)
+        std = torch.ones_like(z)
+        log_scale = torch.log(std)
+        
+        # Compute log probability of z under N(0, I)
+        log_prob = -0.5 * (
+            ((z - mean) ** 2) / (std ** 2)  # Quadratic term
+            + 2 * log_scale                 # Normalization constant
+            + torch.log(torch.tensor(2 * torch.pi, device=z.device))  # Constant factor
+        )
+        
+        # Sum over the latent dimensions
+        return log_prob.sum(dim=-1)
+
 
 # ---------------------------------------------------------------------
 # 2. Variational Autoencoder
