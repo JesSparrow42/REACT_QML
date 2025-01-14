@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import os
 import torch
 from torch import nn
 from torch.distributions import Distribution
 from torch.utils.data import DataLoader
 import numpy as np
+import matplotlib.pyplot as plt
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import argparse
@@ -26,12 +28,18 @@ class BosonPrior(Distribution):
         self.latent_features = latent_features
 
     def rsample(self, sample_shape=torch.Size()):
-        # Use the PTGenerator's generate method to sample a batch of latent vectors.
-        samples = self.boson_sampler.generate(self.batch_size)
-        # Convert to a PyTorch tensor if not already
-        if not isinstance(samples, torch.Tensor):
-            samples = torch.tensor(samples, dtype=torch.float32)
-        return samples
+       # Generate latent vectors using the boson sampler.
+       # Adjust the batch size for discriminator iterations.
+       total_samples = (1 + DISCRIMINATOR_ITER) * self.batch_size
+       latent = self.boson_sampler.generate(total_samples).to(self.device)
+
+       # Chunk the latent tensor into 1 + DISCRIMINATOR_ITER parts.
+       latent = torch.chunk(latent, 1 + DISCRIMINATOR_ITER, dim=0)
+
+       # Optionally, process the chunks further if needed or return them directly.
+       return latent
+
+
 
     def log_prob(self, z):
         """
@@ -194,8 +202,29 @@ class VariationalInference(nn.Module):
         }
         return loss, diagnostics, outputs
 
+
+def save_images(original, reconstructed, output_dir, epoch):
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Save original images
+    for i, img in enumerate(original):
+        plt.imsave(
+            os.path.join(output_dir, f"epoch_{epoch}_original_{i}.png"),
+            img.reshape(28, 28),
+            cmap="gray"
+        )
+
+    # Save reconstructed images
+    for i, img in enumerate(reconstructed):
+        plt.imsave(
+            os.path.join(output_dir, f"epoch_{epoch}_reconstructed_{i}.png"),
+            img.reshape(28, 28),
+            cmap="gray"
+        )
+
+
 # ---------------------------------------------------------------------
-# 5. Main Function
+# 6. Main Function
 # ---------------------------------------------------------------------
 def main():
     parser = argparse.ArgumentParser()
@@ -235,12 +264,17 @@ def main():
     lr = 1e-3
     num_epochs = 10
     batch_size = 64
+    output_dir = "vae_images"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f">> Using device: {device}")
 
     # Load MNIST data
     train_data = MNIST(root=".", train=True, transform=ToTensor(), download=True)
+    test_data = MNIST(root=".", train=False, transform=ToTensor(), download=True)
+
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
     # Initialize VAE
     latent_features = 8
@@ -266,6 +300,23 @@ def main():
             total_loss += loss.item()
 
         print(f"Epoch {epoch+1}/{num_epochs}, Loss: {total_loss/len(train_loader):.4f}")
+
+        # After each epoch, evaluate and save images
+        with torch.no_grad():
+            vae.eval()
+            # Load a single batch from the test loader
+            x, _ = next(iter(test_loader))
+            x = x.view(x.size(0), -1).to(device)
+
+            # Forward pass through the model
+            _, _, outputs = vi(vae, x)[:3]  # We only need outputs for visualization
+
+            # Extract original and reconstructed images
+            reconstructed = outputs["px"].probs.cpu().numpy()  # Get probabilities from Bernoulli
+            original = x.cpu().numpy()
+
+            # Save images for this epoch
+            save_images(original, reconstructed, output_dir, epoch+1)
 
 if __name__ == "__main__":
     main()
