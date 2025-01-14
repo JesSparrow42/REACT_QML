@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SparrowQML"
+version = "0.0.1"
+description = "Generative quantum machine learning models"
+authors = [
+  { name = "Jonatan", email = "jonatan.emil.svendsen@sparrowquantum.com" },
+]
+
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["dependencies", "optional-dependencies"]
+
+[project.scripts]
+train = "mnist_project.train:app"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.dynamic.optional-dependencies]
+dev = {file = ['requirements_dev.txt']}
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "C", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+ignore-decorators = []
+property-decorators = []
+ignore-var-parameters = false
+
+[tool.coverage.run]
+omit = ["tests/*"]
