@@ -9,7 +9,6 @@ import numpy as np
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import argparse
-import pdb
 
 from ptseries.models import PTGenerator
 
@@ -261,7 +260,6 @@ def main():
         for x, _ in train_loader:
             x = x.view(x.size(0), -1).to(device)
             loss, diagnostics, outputs = vi(vae, x)
-            pdb.set_trace()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
