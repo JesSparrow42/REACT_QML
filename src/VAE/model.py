@@ -189,3 +189,46 @@ def save_images(original, reconstructed, output_dir, epoch):
             img.reshape(28, 28),
             cmap="gray"
         )
+
+# ---------------------------------------------------------------------
+# Integrated Lightning Module combining model and training logic
+# ---------------------------------------------------------------------
+class VAE_Lightning(pl.LightningModule):
+    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
+        super().__init__()
+        self.save_hyperparameters()
+        self.lr = lr
+        self.output_dir = output_dir
+        self.latent_features = latent_features
+
+        # Initialize the VAE model and inference mechanism
+        self.vae = VariationalAutoencoder(
+            input_shape=torch.Size([28*28]),
+            latent_features=self.hparams.latent_features,
+            boson_sampler_params=self.hparams.boson_params_to_use
+        )
+        self.vi = VariationalInference(beta=1.0)
+
+    def forward(self, x):
+        return self.vae(x)
+
+    def training_step(self, batch, batch_idx):
+        x, _ = batch
+        x = x.view(x.size(0), -1).to(self.device)
+        loss, diagnostics, _ = self.vi(self.vae, x)
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        # Save images on the first batch of each epoch
+        if batch_idx == 0:
+            x, _ = batch
+            x = x.view(x.size(0), -1).to(self.device)
+            with torch.no_grad():
+                _, _, outputs = self.vi(self.vae, x)[:3]
+                reconstructed = outputs["px"].probs.cpu().numpy()
+                original = x.cpu().numpy()
+                save_images(original, reconstructed, self.output_dir, self.current_epoch)
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.vae.parameters(), lr=1e-3)

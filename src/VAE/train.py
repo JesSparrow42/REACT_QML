@@ -8,46 +8,8 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import argparse
 
-from vae.model import VariationalAutoencoder, VariationalInference, save_images
-
-class VAE_Lightning(pl.LightningModule):
-    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
-        super().__init__()
-        self.save_hyperparameters()  # Saves hyperparameters for easy access
-        self.lr = lr
-        self.output_dir = output_dir
-        self.latent_features = latent_features
-
-        self.vae = VariationalAutoencoder(
-            input_shape=torch.Size([28*28]),
-            latent_features=self.hparams.latent_features,
-            boson_sampler_params=self.hparams.boson_params_to_use
-        )
-        self.vi = VariationalInference(beta=1.0)
-
-    def forward(self, x):
-        return self.vae(x)
-
-    def training_step(self, batch, batch_idx):
-        x, _ = batch
-        x = x.view(x.size(0), -1).to(self.device)
-        loss, diagnostics, _ = self.vi(self.vae, x)
-        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        # Use validation to save images each epoch using first batch
-        if batch_idx == 0:
-            x, _ = batch
-            x = x.view(x.size(0), -1).to(self.device)
-            with torch.no_grad():
-                _, _, outputs = self.vi(self.vae, x)[:3]
-                reconstructed = outputs["px"].probs.cpu().numpy()
-                original = x.cpu().numpy()
-                save_images(original, reconstructed, self.output_dir, self.current_epoch)
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.vae.parameters(), lr=self.lr)
+from vae.data import MedicalDataModule
+from vae.model import VAE_Lightning
 
 def main():
     parser = argparse.ArgumentParser()
@@ -82,31 +44,25 @@ def main():
         }
         print(">> Using Boson Sampler as prior.")
 
-    # Hyperparameters
-    lr = 1e-3
-    num_epochs = 10
-    batch_size = 64
     latent_features = 8
     output_dir = "vae_images"
 
-    # Data loading
-    train_data = MNIST(root=".", train=True, transform=ToTensor(), download=True)
-    test_data = MNIST(root=".", train=False, transform=ToTensor(), download=True)
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
-
+    ct_folder = 'data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805'
+    pet_folder = 'data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000'
+    data_module = MedicalDataModule(ct_folder, pet_folder, batch_size=64)
     # Initialize Lightning module
-    model = VAE_Lightning(boson_params_to_use, lr, latent_features, output_dir)
+    model = VAE_Lightning(boson_params_to_use, latent_features, output_dir)
 
     # Initialize Trainer
     trainer = Trainer(
-        max_epochs=num_epochs,
-        gpus=1 if torch.cuda.is_available() else 0,
-        progress_bar_refresh_rate=20
+        default_root_dir="my_logs_dir",
+        max_epochs=10,
+        profiler="simple",
+        logger=pl.loggers.WandbLogger(project="vae_sparrow"),
     )
 
     # Train the model
-    trainer.fit(model, train_dataloader=train_loader, val_dataloaders=val_loader)
+    trainer.fit(model, datamodule=data_module)
 
 if __name__ == "__main__":
     main()
