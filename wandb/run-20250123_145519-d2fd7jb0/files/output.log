@@ -1,0 +1,26 @@
+Traceback (most recent call last):
+  File "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/src/vae/train.py", line 69, in <module>
+    main()
+  File "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/src/vae/train.py", line 66, in main
+    trainer.fit(model, datamodule=data_module)
+  File "/root/miniconda3/envs/myenv/lib/python3.12/site-packages/pytorch_lightning/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/root/miniconda3/envs/myenv/lib/python3.12/site-packages/pytorch_lightning/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/envs/myenv/lib/python3.12/site-packages/pytorch_lightning/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/root/miniconda3/envs/myenv/lib/python3.12/site-packages/pytorch_lightning/trainer/trainer.py", line 944, in _run
+    call._call_setup_hook(self)  # allow user to set up LightningModule in accelerator environment
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/miniconda3/envs/myenv/lib/python3.12/site-packages/pytorch_lightning/trainer/call.py", line 102, in _call_setup_hook
+    _call_lightning_datamodule_hook(trainer, "setup", stage=fn)
+  File "/root/miniconda3/envs/myenv/lib/python3.12/site-packages/pytorch_lightning/trainer/call.py", line 193, in _call_lightning_datamodule_hook
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/src/vae/data.py", line 17, in setup
+    self.dataset = create_data_loader(
+                   ^^^^^^^^^^^^^^^^^^^
+  File "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/src/vae/data_loader.py", line 176, in create_data_loader
+    raise ValueError(f"The CT folder path {ct_folder} does not exist or is not a directory.")
+ValueError: The CT folder path data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805 does not exist or is not a directory.

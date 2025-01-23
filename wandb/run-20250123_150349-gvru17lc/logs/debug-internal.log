@@ -1,0 +1,15 @@
+{"time":"2025-01-23T15:03:49.69964749+01:00","level":"INFO","msg":"stream: starting","core version":"0.19.2","symlink path":"wandb/run-20250123_150349-gvru17lc/logs/debug-core.log"}
+{"time":"2025-01-23T15:03:49.84365126+01:00","level":"INFO","msg":"created new stream","id":"gvru17lc"}
+{"time":"2025-01-23T15:03:49.843967919+01:00","level":"INFO","msg":"stream: started","id":"gvru17lc"}
+{"time":"2025-01-23T15:03:49.843958118+01:00","level":"INFO","msg":"handler: started","stream_id":"gvru17lc"}
+{"time":"2025-01-23T15:03:49.84399916+01:00","level":"INFO","msg":"writer: Do: started","stream_id":"gvru17lc"}
+{"time":"2025-01-23T15:03:49.844030662+01:00","level":"INFO","msg":"sender: started","stream_id":"gvru17lc"}
+{"time":"2025-01-23T15:03:50.32501364+01:00","level":"INFO","msg":"Starting system monitor"}
+{"time":"2025-01-23T15:03:50.582168139+01:00","level":"INFO","msg":"stream: closing","id":"gvru17lc"}
+{"time":"2025-01-23T15:03:50.582392387+01:00","level":"INFO","msg":"Stopping system monitor"}
+{"time":"2025-01-23T15:03:50.58321012+01:00","level":"INFO","msg":"Stopped system monitor"}
+{"time":"2025-01-23T15:03:51.917006173+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-01-23T15:03:52.135308157+01:00","level":"INFO","msg":"handler: closed","stream_id":"gvru17lc"}
+{"time":"2025-01-23T15:03:52.13535518+01:00","level":"INFO","msg":"writer: Close: closed","stream_id":"gvru17lc"}
+{"time":"2025-01-23T15:03:52.135466719+01:00","level":"INFO","msg":"sender: closed","stream_id":"gvru17lc"}
+{"time":"2025-01-23T15:03:52.136965091+01:00","level":"INFO","msg":"stream: closed","id":"gvru17lc"}

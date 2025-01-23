@@ -1,0 +1,66 @@
+_wandb:
+    value:
+        cli_version: 0.19.2
+        m:
+            - "1": trainer/global_step
+              "6":
+                - 3
+              "7": []
+        python_version: 3.12.8
+        t:
+            "1":
+                - 1
+                - 9
+                - 41
+                - 55
+                - 103
+            "2":
+                - 1
+                - 9
+                - 41
+                - 55
+                - 103
+            "3":
+                - 7
+                - 23
+                - 55
+                - 66
+            "4": 3.12.8
+            "5": 0.19.2
+            "8":
+                - 5
+            "12": 0.19.2
+            "13": linux-x86_64
+boson_params_to_use:
+    value:
+        input_state:
+            - 1
+            - 0
+            - 1
+            - 0
+            - 1
+            - 0
+            - 1
+            - 0
+        n_tiling: 1
+        tbi_params:
+            bs_loss: 0
+            bs_noise: 0
+            detector_efficiency: 1
+            distinguishable: false
+            g2: 0
+            input_loss: 0
+            loop_lengths:
+                - 2
+                - 3
+                - 4
+            n_loops: 3
+            n_signal_detectors: 0
+            postselected: true
+            tbi_type: multi-loop
+latent_features:
+    value: 8
+lr:
+    value: 0.001
+output_dir:
+    value: vae_images

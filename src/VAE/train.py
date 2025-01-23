@@ -7,6 +7,7 @@ from torchvision.transforms import ToTensor
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import argparse
+from pathlib import Path
 
 from vae.data import MedicalDataModule
 from vae.model import VAE_Lightning
@@ -46,12 +47,13 @@ def main():
 
     latent_features = 8
     output_dir = "vae_images"
+    lr = 0.001
 
-    ct_folder = 'data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805'
-    pet_folder = 'data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000'
+    ct_folder = 'Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805'
+    pet_folder = 'Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000'
     data_module = MedicalDataModule(ct_folder, pet_folder, batch_size=64)
     # Initialize Lightning module
-    model = VAE_Lightning(boson_params_to_use, latent_features, output_dir)
+    model = VAE_Lightning(boson_params_to_use, lr, latent_features, output_dir)
 
     # Initialize Trainer
     trainer = Trainer(

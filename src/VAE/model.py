@@ -3,6 +3,7 @@ import os
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import pytorch_lightning as pl
 from torch import nn
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator

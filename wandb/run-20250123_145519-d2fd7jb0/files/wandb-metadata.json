@@ -1,0 +1,31 @@
+{
+  "os":  "Linux-5.15.167.4-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "python":  "CPython 3.12.8",
+  "startedAt":  "2025-01-23T13:55:20.227217Z",
+  "program":  "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/src/vae/train.py",
+  "codePath":  "src/vae/train.py",
+  "git":  {
+    "remote":  "git@github.com:JesSparrow42/SparrowQML.git",
+    "commit":  "9cf6ea54c9fdc0c075c61fb146617ce3a6884d58"
+  },
+  "email":  "Jhz209@alumni.ku.dk",
+  "root":  ".",
+  "host":  "laptop-20241218",
+  "executable":  "/root/miniconda3/envs/myenv/bin/python",
+  "codePathLocal":  "src/vae/train.py",
+  "cpu_count":  7,
+  "cpu_count_logical":  14,
+  "disk":  {
+    "/":  {
+      "total":  "1081101176832",
+      "used":  "15690670080"
+    }
+  },
+  "memory":  {
+    "total":  "16608133120"
+  },
+  "cpu":  {
+    "count":  7,
+    "countLogical":  14
+  }
+}
