@@ -47,7 +47,7 @@ def main():
 
     latent_features = 8
     output_dir = "vae_images"
-    lr = 0.001
+    lr = 0.0005
 
     ct_folder = 'Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805'
     pet_folder = 'Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000'
@@ -60,7 +60,8 @@ def main():
         default_root_dir="my_logs_dir",
         max_epochs=10,
         profiler="simple",
-        logger=pl.loggers.WandbLogger(project="vae_sparrow"),
+        #logger=pl.loggers.WandbLogger(project="vae_sparrow"),
+        gradient_clip_val=0.5  # adjust as needed
     )
 
     # Train the model
