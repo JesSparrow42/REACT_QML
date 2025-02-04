@@ -59,8 +59,8 @@ def main():
     trainer = Trainer(
         default_root_dir="my_logs_dir",
         max_epochs=10,
-        profiler="simple",
-        #logger=pl.loggers.WandbLogger(project="vae_sparrow"),
+        #profiler="simple",
+        logger=pl.loggers.WandbLogger(project="vae_sparrow"),
         gradient_clip_val=0.5  # adjust as needed
     )
 
