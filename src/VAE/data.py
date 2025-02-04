@@ -195,11 +195,11 @@ class MedicalDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         return DataLoader(
-            self.dataset,
+            self.train_dataset,
             batch_size=self.batch_size,
-            shuffle=True,  # Shuffle for training
+            shuffle=True,
             num_workers=self.num_workers,
-            drop_last=True
+            drop_last=True               # Drop last is fine for training
         )
 
     def val_dataloader(self):
@@ -208,5 +208,5 @@ class MedicalDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            drop_last=True
+            drop_last=False              # Ensure validation batch is returned even if incomplete
         )
