@@ -132,19 +132,32 @@ class DICOMDataset(Dataset):
     def __getitem__(self, idx):
         ct_file = self.ct_files[idx]
         pet_file = self.pet_files[idx]
+        
+        # Read DICOM files
         ct_ds = dcmread(ct_file)
         pet_ds = dcmread(pet_file)
+        
+        # Get the pixel arrays (already cast to float32, but still in numpy, likely uint8 later)
         ct_image = ct_ds.pixel_array.astype(np.float32)
         pet_image = pet_ds.pixel_array.astype(np.float32)
+        
+        # Convert numpy arrays to PIL images
         to_pil = ToPILImage()
         ct_image_pil = to_pil(ct_image)
         pet_image_pil = to_pil(pet_image)
+        
+        # Apply augmentations if required
         if self.augment:
             ct_image_pil = self.transform(ct_image_pil)
             pet_image_pil = self.transform(pet_image_pil)
-        ct_image_tensor = torch.tensor(np.array(ct_image_pil)).unsqueeze(0)  # Add channel dimension
-        pet_image_tensor = torch.tensor(np.array(pet_image_pil)).unsqueeze(0)  # Add channel dimension
+        
+        # Convert PIL images to tensors using ToTensor(), which returns Float tensors scaled to [0,1]
+        to_tensor = transforms.ToTensor()
+        ct_image_tensor = to_tensor(ct_image_pil)
+        pet_image_tensor = to_tensor(pet_image_pil)
+        
         return pet_image_tensor, ct_image_tensor
+
 
 def create_dataset(ct_folder, pet_folder, augment=True):
     """
