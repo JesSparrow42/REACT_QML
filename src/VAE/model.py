@@ -158,7 +158,9 @@ class VariationalInference(nn.Module):
         def reduce_sum(tensor):
             return tensor.view(tensor.size(0), -1).sum(dim=1)
 
-        log_px = reduce_sum(px.log_prob(x))
+        # Reshape x to match the logits shape (batch_size, 128, 128)
+        x_image = x.view(x.size(0), *model.input_shape)
+        log_px = reduce_sum(px.log_prob(x_image))
         log_pz = reduce_sum(pz.log_prob(z))
         log_qz = reduce_sum(qz.log_prob(z))
 
