@@ -47,28 +47,28 @@ class VariationalAutoencoder(nn.Module):
         super().__init__()
         self.input_shape = input_shape
         self.latent_features = latent_features
-        self.observation_features = int(np.prod(input_shape))
+        self.observation_features = int(np.prod(input_shape))  # For 128x128, this would be 16384
 
-        # Encoder
+        # Adjust encoder to accept a larger input vector (16384 vs. 784)
         self.encoder = nn.Sequential(
-            nn.Linear(self.observation_features, 512),
+            nn.Linear(self.observation_features, 1024),
+            nn.LeakyReLU(0.2),
+            nn.Linear(1024, 512),
             nn.LeakyReLU(0.2),
             nn.Linear(512, 256),
             nn.LeakyReLU(0.2),
-            nn.Linear(256, 128),
-            nn.LeakyReLU(0.2),
-            nn.Linear(128, 2 * latent_features)
+            nn.Linear(256, 2 * latent_features)
         )
 
-        # Decoder
+        # Adjust decoder correspondingly
         self.decoder = nn.Sequential(
-            nn.Linear(latent_features, 128),
-            nn.Tanh(),
-            nn.Linear(128, 256),
+            nn.Linear(latent_features, 256),
             nn.Tanh(),
             nn.Linear(256, 512),
             nn.Tanh(),
-            nn.Linear(512, self.observation_features)
+            nn.Linear(512, 1024),
+            nn.Tanh(),
+            nn.Linear(1024, self.observation_features)
         )
 
         # Setup BosonSampler if parameters provided
@@ -202,9 +202,9 @@ class VAE_Lightning(pl.LightningModule):
         self.output_dir = output_dir
         self.latent_features = latent_features
 
-        # Initialize the VAE model and inference mechanism
+        # For 128x128 images, input_shape should be torch.Size([128, 128])
         self.vae = VariationalAutoencoder(
-            input_shape=torch.Size([28*28]),
+            input_shape=torch.Size([128, 128]),
             latent_features=self.hparams.latent_features,
             boson_sampler_params=self.hparams.boson_params_to_use
         )
