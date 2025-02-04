@@ -180,16 +180,17 @@ class VariationalInference(nn.Module):
 # ---------------------------------------------------------------------
 def save_images(original, reconstructed, output_dir, epoch):
     os.makedirs(output_dir, exist_ok=True)
+    # Update dimensions if needed; here assuming 128x128 images:
     for i, img in enumerate(original):
         plt.imsave(
             os.path.join(output_dir, f"epoch_{epoch}_original_{i}.png"),
-            img.reshape(28, 28),
+            img.reshape(128, 128),
             cmap="gray"
         )
     for i, img in enumerate(reconstructed):
         plt.imsave(
             os.path.join(output_dir, f"epoch_{epoch}_reconstructed_{i}.png"),
-            img.reshape(28, 28),
+            img.reshape(128, 128),
             cmap="gray"
         )
 
