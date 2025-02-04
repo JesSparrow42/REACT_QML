@@ -226,6 +226,7 @@ class VAE_Lightning(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # Save images on the first batch of each epoch
         if batch_idx == 0:
+            print(f"Validation step called at epoch {self.current_epoch}")
             x, _ = batch
             x = x.view(x.size(0), -1).to(self.device)
             with torch.no_grad():
