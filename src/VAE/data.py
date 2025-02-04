@@ -185,11 +185,28 @@ class MedicalDataModule(pl.LightningDataModule):
             augment=self.augment
         )
 
+        # Optionally, split the dataset into train and val portions
+        if stage == 'fit' or stage is None:
+            dataset_size = len(self.dataset)
+            split = int(0.8 * dataset_size)
+            self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+                self.dataset, [split, dataset_size - split]
+            )
+
     def train_dataloader(self):
         return DataLoader(
             self.dataset,
             batch_size=self.batch_size,
             shuffle=True,  # Shuffle for training
+            num_workers=self.num_workers,
+            drop_last=True
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
             num_workers=self.num_workers,
             drop_last=True
         )
