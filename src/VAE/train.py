@@ -14,7 +14,7 @@ from omegaconf import DictConfig, OmegaConf
 from vae.data import MedicalDataModule
 from vae.model import VAE_Lightning
 
-@hydra.main(config_path=".", config_name="config")
+@hydra.main(config_path="../../", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     # Print the loaded configuration for confirmation
     print("Loaded configuration:")
