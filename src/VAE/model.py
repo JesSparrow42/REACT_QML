@@ -224,16 +224,25 @@ class VAE_Lightning(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
+        x, _ = batch
+        x = x.view(x.size(0), -1).to(self.device)
+
+        # Compute validation loss
+        loss, diagnostics, _ = self.vi(self.vae, x)
+
+        # Log validation loss
+        self.log('validation_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+
         # Save images on the first batch of each epoch
         if batch_idx == 0:
             print(f"Validation step called at epoch {self.current_epoch}")
-            x, _ = batch
-            x = x.view(x.size(0), -1).to(self.device)
             with torch.no_grad():
                 _, _, outputs = self.vi(self.vae, x)[:3]
                 reconstructed = outputs["px"].probs.cpu().numpy()
                 original = x.cpu().numpy()
                 save_images(original, reconstructed, self.output_dir, self.current_epoch)
+
+        return loss
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.vae.parameters(), lr=1e-3)

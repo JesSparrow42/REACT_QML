@@ -1,18 +1,18 @@
-program: src/vae/train.py 
+program: src/vae/train.py
 name: sweepdemo
-project: 
-entity:  
+project: vae_sparrow
+entity: jhz209-university-of-copenhagen
 method: bayes
 metric:
     goal: minimize
     name: validation_loss
 parameters:
-    lr:
-        min: 0.0001
-        max: 0.1
-        distribution: log_uniform
-    batch-size:
+    hyperparameters.batch_size:
         values: [16, 32, 64]
-    epochs:
-        values: [5, 10, 15]
+    hyperparameters.n_epochs:
+        values: [10, 15, 20]
+    hyperparameters.lr:
+        min: 0.00001
+        max: 0.001
+        distribution: log_uniform_values
 run_cap: 10

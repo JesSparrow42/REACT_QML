@@ -1,4 +1,14 @@
 # train.py
+import sys
+# Preprocess sys.argv to remove extra dashes for Hydra overrides.
+new_args = []
+for arg in sys.argv[1:]:
+    if arg.startswith("--hyperparameters."):
+        new_args.append(arg.lstrip("-"))
+    else:
+        new_args.append(arg)
+sys.argv = [sys.argv[0]] + new_args
+
 import os
 import torch
 from torch.utils.data import DataLoader
@@ -14,7 +24,7 @@ from omegaconf import DictConfig, OmegaConf
 from vae.data import MedicalDataModule
 from vae.model import VAE_Lightning
 
-@hydra.main(config_path="../../", config_name="config", version_base=None)
+@hydra.main(config_path="../../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     # Print the loaded configuration for confirmation
     print("Loaded configuration:")
