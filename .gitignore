@@ -1,7 +1,38 @@
 repo_name/
 simple_repo/
 advance_repo/
-__pycache__/
 vae_images/
 wandb/
 *.bkp
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore egg-info directories
+*.egg-info/
+
+# Ignore WandB log files and directories
+wandb/
+!wandb/settings  # (if you need to keep wandb settings)
+
+# Ignore output directories and logs
+my_logs_dir/
+outputs/
+vae_sparrow
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore egg-info directories
+*.egg-info/
+
+# Ignore WandB log files and directories
+wandb/
+!wandb/settings  # (if you need to keep wandb settings)
+
+# Ignore output directories and logs
+my_logs_dir/
+outputs/
+vae_sparrow/
+vae_images/

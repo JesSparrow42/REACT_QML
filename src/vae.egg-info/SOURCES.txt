@@ -6,6 +6,7 @@ requirements_dev.txt
 src/vae/__init__.py
 src/vae/api.py
 src/vae/data.py
+src/vae/data_loader.py
 src/vae/evaluate.py
 src/vae/model.py
 src/vae/train.py
