@@ -8,21 +8,24 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 import argparse
 from pathlib import Path
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 from vae.data import MedicalDataModule
 from vae.model import VAE_Lightning
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--boson_sampler_params",
-        default="true",
-        choices=["true", "false"],
-        help="When 'true' we use the Boson Sampler. When 'false', we use Gaussian."
-    )
-    args = parser.parse_args()
+@hydra.main(config_path=".", config_name="config")
+def main(cfg: DictConfig):
+    # Print the loaded configuration for confirmation
+    print("Loaded configuration:")
+    print(OmegaConf.to_yaml(cfg))
 
-    if args.boson_sampler_params == "false":
+    # Optionally set the seed for reproducibility
+    torch.manual_seed(cfg.hyperparameters.seed)
+
+    # If the config does not specify, we default to using the Boson sampler.
+    boson_flag = cfg.hyperparameters.get("boson_sampler_params", "true")
+    if boson_flag == "false":
         boson_params_to_use = None
         print(">> Using standard Gaussian prior.")
     else:
@@ -47,18 +50,17 @@ def main():
 
     latent_features = 8
     output_dir = "vae_images"
-    lr = 0.0005
 
     ct_folder = 'Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805'
     pet_folder = 'Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000'
-    data_module = MedicalDataModule(ct_folder, pet_folder, batch_size=64)
+    data_module = MedicalDataModule(ct_folder, pet_folder, batch_size=cfg.hyperparameters.batch_size)
     # Initialize Lightning module
-    model = VAE_Lightning(boson_params_to_use, lr, latent_features, output_dir)
+    model = VAE_Lightning(boson_params_to_use, cfg.hyperparameters.lr, latent_features, output_dir)
 
     # Initialize Trainer
     trainer = Trainer(
         default_root_dir="my_logs_dir",
-        max_epochs=10,
+        max_epochs=cfg.hyperparameters.n_epochs,
         #profiler="simple",
         logger=pl.loggers.WandbLogger(project="vae_sparrow"),
         gradient_clip_val=0.5  # adjust as needed
