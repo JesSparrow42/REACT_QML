@@ -217,12 +217,12 @@ class VAE_Lightning(pl.LightningModule):
         return self.vae(x)
 
     def training_step(self, batch, batch_idx):
-        pet_image, ct_image = batch
-        pet_image_flat = pet_image.view(pet_image.size(0), -1).to(self.device)
-        outputs = selv.vae(pet_image_flat)
-        ct_image_reshaped = ct_image.view(ct_image.size(0), *self.vae.input_shape).to(self.device)
+        x, _ = batch
+        x = x.view(x.size(0), -1).to(self.device)
+        #outputs = selv.vae(pet_image_flat)
+        #ct_image_reshaped = ct_image.view(ct_image.size(0), *self.vae.input_shape).to(self.device)
 
-        loss, diagnostics, _ = self.vi(self.vae, pet_image_flat, target=ct_image_reshaped)
+        loss, diagnostics, _ = self.vi(self.vae, x)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
