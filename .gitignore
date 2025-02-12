@@ -2,6 +2,8 @@ repo_name/
 simple_repo/
 advance_repo/
 vae_images/
+gan_images/
+transformer_images/
 wandb/
 *.bkp
 
@@ -20,6 +22,8 @@ wandb/
 my_logs_dir/
 outputs/
 vae_sparrow
+gan_sparrow
+transformer_sparrow
 # Ignore Python cache files
 __pycache__/
 *.pyc

@@ -1,6 +1,18 @@
 hyperparameters:
-  batch_size: 64
-  n_epochs: 10
-  lr: 0.0005
   seed: 42
+  batch_size: 32
+  n_epochs: 250
+  lr: 5e-4
+  gen_lr: 0.0004
+  disc_lr: 2e-6
+  latent_features: 8
+  output_dir: "transformer_images" # vae, transformer or gan
+  model_type: "transformer" # "vae", "transformer" or "gan"
+  gan_output_size: 64
   boson_sampler_params: "true"
+  ct_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805"
+  pet_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000"
+  pretrain_gen_epochs: 100
+  pretrain_disc_epochs: 50
+  #gen_checkpoint_path: "model_checkpoints/generator_epoch_3000.pt"
+  #disc_checkpoint_path: "model_checkpoints/discriminator_epoch_3000.pt"
