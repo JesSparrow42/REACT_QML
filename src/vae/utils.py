@@ -1,0 +1,94 @@
+# utils.py
+import os
+import torch
+import torch.nn.functional as F
+import matplotlib.pyplot as plt
+
+def save_images(original, reconstructed, output_dir, epoch, expected_shape=None):
+    """Save original and reconstructed images.
+    If expected_shape is provided and an image is flat (1D), it will be reshaped.
+    Otherwise, the image is saved as-is.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    for i, img in enumerate(original):
+        if expected_shape is not None and img.ndim == 1:
+            try:
+                img = img.reshape(expected_shape)
+            except Exception as e:
+                print(f"Error reshaping original image {i}: {e}")
+        plt.imsave(os.path.join(output_dir, f"epoch_{epoch}_original_{i}.png"), img, cmap="gray")
+    for i, img in enumerate(reconstructed):
+        if expected_shape is not None and img.ndim == 1:
+            try:
+                img = img.reshape(expected_shape)
+            except Exception as e:
+                print(f"Error reshaping reconstructed image {i}: {e}")
+        plt.imsave(os.path.join(output_dir, f"epoch_{epoch}_reconstructed_{i}.png"), img, cmap="gray")
+
+
+def save_weights(model, optimizer, epoch, save_path, loss):
+    """Save the model weights and optimizer state."""
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss
+    }, save_path)
+
+
+def load_separate_checkpoints(self, gen_checkpoint_path, disc_checkpoint_path, device):
+        # Load generator checkpoint
+        if os.path.exists(gen_checkpoint_path):
+            gen_ckpt = torch.load(gen_checkpoint_path, map_location=device)
+            self.generator.load_state_dict(gen_ckpt['model_state_dict'])
+            start_epoch_gen = gen_ckpt.get('epoch', 0)
+            print(f"Loaded generator checkpoint from {gen_checkpoint_path} at epoch {start_epoch_gen}")
+        else:
+            start_epoch_gen = 0
+            print("No generator checkpoint found; starting generator from scratch.")
+
+        # Load discriminator checkpoint
+        if os.path.exists(disc_checkpoint_path):
+            disc_ckpt = torch.load(disc_checkpoint_path, map_location=device)
+            self.discriminator.load_state_dict(disc_ckpt['model_state_dict'])
+            start_epoch_disc = disc_ckpt.get('epoch', 0)
+            print(f"Loaded discriminator checkpoint from {disc_checkpoint_path} at epoch {start_epoch_disc}")
+        else:
+            start_epoch_disc = 0
+            print("No discriminator checkpoint found; starting discriminator from scratch.")
+
+        return start_epoch_gen, start_epoch_disc
+
+
+def plot_losses(gen_losses, disc_losses, phase):
+    """Plot generator and discriminator losses."""
+    plt.figure(figsize=(10, 5))
+    plt.plot(gen_losses, label='Generator Loss')
+    plt.plot(disc_losses, label='Discriminator Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.title(f'{phase} Training Losses')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('training.png')
+    plt.show()
+
+def dice_loss(pred, target):
+    """Compute the dice loss between prediction and target."""
+    smooth = 1.0
+    pred_flat = pred.view(-1)
+    target_flat = target.view(-1)
+    intersection = (pred_flat * target_flat).sum()
+    return 1 - ((2.0 * intersection + smooth) / (pred_flat.sum() + target_flat.sum() + smooth))
+
+def generator_loss(disc_output, real_ct, generated_ct, bone_mask=None):
+    """Compute a combined generator loss."""
+    if bone_mask is None:
+        L_disc = F.binary_cross_entropy(disc_output, torch.ones_like(disc_output))
+        L_MAE = F.l1_loss(generated_ct, real_ct)
+        L_dice = dice_loss(generated_ct, real_ct)
+    else:
+        L_disc = F.binary_cross_entropy(disc_output, torch.ones_like(disc_output))
+        L_MAE = F.l1_loss(generated_ct, real_ct)
+        L_dice = dice_loss(generated_ct * bone_mask, real_ct * bone_mask)
+    return L_disc + 150 * L_MAE + L_dice
