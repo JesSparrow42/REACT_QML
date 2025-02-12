@@ -1,4 +1,4 @@
-### SparrowQML
+# SparrowQML
 Development Space for Quantum Machine Learning in Sparrow Quantum
 
 Add User Instructions here
@@ -10,8 +10,8 @@ Models can be run by:
 
 To change between models in `configs/config.yaml` change the model_type between `gan`, `vae` and `transformer`.
 
-# Generative Adversarial Network(GAN)
+### Generative Adversarial Network(GAN)
 
-# Variational Autoencoder(VAE)
+### Variational Autoencoder(VAE)
 
-# Transformers
+### Transformers
