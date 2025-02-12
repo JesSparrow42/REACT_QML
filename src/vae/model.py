@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pytorch_lightning as pl
 from torch import nn
+import torch.nn.functional as F
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator
 
@@ -151,16 +152,20 @@ class VariationalInference(nn.Module):
         super().__init__()
         self.beta = beta
 
-    def forward(self, model, x):
+    def forward(self, model, x, target=None):
         outputs = model(x)
         px, pz, qz, z = outputs['px'], outputs['pz'], outputs['qz'], outputs['z']
 
         def reduce_sum(tensor):
             return tensor.view(tensor.size(0), -1).sum(dim=1)
 
+        if target is None:
+            x_target = x.view(x.size(0), *model.input_shape)
+        else:
+            x_target = target
+
         # Reshape x to match the logits shape (batch_size, 128, 128)
-        x_image = x.view(x.size(0), *model.input_shape)
-        log_px = reduce_sum(px.log_prob(x_image))
+        log_px = reduce_sum(px.log_prob(x_target))
         log_pz = reduce_sum(pz.log_prob(z))
         log_qz = reduce_sum(qz.log_prob(z))
 
@@ -217,21 +222,28 @@ class VAE_Lightning(pl.LightningModule):
         return self.vae(x)
 
     def training_step(self, batch, batch_idx):
-        x, _ = batch
-        x = x.view(x.size(0), -1).to(self.device)
-        #outputs = selv.vae(pet_image_flat)
-        #ct_image_reshaped = ct_image.view(ct_image.size(0), *self.vae.input_shape).to(self.device)
+        pet_image, ct_image = batch
+        pet_image_flat = pet_image.view(pet_image.size(0), -1).to(self.device)
+        ct_image_target = ct_image[:, 0, :, :].to(self.device)
+        ct_image_target = F.interpolate(ct_image_target.unsqueeze(1),
+                                        size=self.vae.input_shape,
+                                        mode='bilinear',
+                                        align_corners=False).squeeze(1)
 
-        loss, diagnostics, _ = self.vi(self.vae, x)
+        loss, diagnostics, outputs = self.vi(self.vae, pet_image_flat, target=ct_image_target)
         self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, _ = batch
-        x = x.view(x.size(0), -1).to(self.device)
+        pet_image, ct_image = batch
+        pet_image_flat = pet_image.view(pet_image.size(0), -1).to(self.device)
+        ct_image_target = ct_image[:, 0, :, :].to(self.device)
+        ct_image_target = F.interpolate(ct_image_target.unsqueeze(1),
+                                        size=self.vae.input_shape,
+                                        mode='bilinear',
+                                        align_corners=False).squeeze(1)
 
-        # Compute validation loss
-        loss, diagnostics, _ = self.vi(self.vae, x)
+        loss, diagnostics, outputs = self.vi(self.vae, pet_image_flat, target=ct_image_target)
 
         # Log validation loss
         self.log('validation_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
@@ -240,10 +252,9 @@ class VAE_Lightning(pl.LightningModule):
         if batch_idx == 0:
             print(f"Validation step called at epoch {self.current_epoch}")
             with torch.no_grad():
-                _, _, outputs = self.vi(self.vae, x)[:3]
-                reconstructed = outputs["px"].probs.cpu().numpy()
-                original = x.cpu().numpy()
-                save_images(original, reconstructed, self.output_dir, self.current_epoch)
+                reconstructed_ct = outputs["px"].probs.cpu().numpy()
+                original_ct = ct_image_target.cpu().numpy()
+                save_images(original_ct, reconstructed_ct, self.output_dir, self.current_epoch)
 
         return loss
 
