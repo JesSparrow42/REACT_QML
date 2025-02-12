@@ -6,9 +6,9 @@ Add User Instructions here
 ## Generative AI models
 Models can be run by:
 
-´python src/vae/train.py´
+`python src/vae/train.py`
 
-To change between models in 'configs/config.yaml´ change the model_type between ´gan´, ´vae´ and ´transformer´.
+To change between models in `configs/config.yaml` change the model_type between `gan`, `vae` and `transformer`.
 
 # Generative Adversarial Network(GAN)
 
