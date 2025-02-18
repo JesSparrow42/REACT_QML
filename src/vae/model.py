@@ -23,7 +23,7 @@ class BosonPrior(Distribution):
         self.boson_sampler = boson_sampler
         self.batch_size = batch_size
         self.latent_features = latent_features
-        if torch.cuda.is_avalilable():
+        if torch.cuda.is_available():
             self.device = torch.device('cuda')
         elif torch.backends.mps.is_available():
             self.device = torch.device('mps')
