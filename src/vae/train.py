@@ -18,7 +18,7 @@ from omegaconf import DictConfig, OmegaConf
 
 # Assume you have a MedicalDataModule defined in your project
 from data import MedicalDataModule
-from model import GAN_Lightning, VAE_Lightning, Transformer_Lightning
+from model import GAN_Lightning, VAE_Lightning, Transformer_Lightning, UNetLightning
 #from transformer import Transformer_Lightning
 from utils import load_separate_checkpoints
 
@@ -110,16 +110,17 @@ def main(cfg: DictConfig):
 
     elif model_type == "transformer":
         print(">> Training Transformer model.")
-        # Instantiate the Transformer Lightning module with its specific hyperparameters.
-        model = Transformer_Lightning(
-            boson_params_to_use=boson_params_to_use,
+        # Instantiate the Unet Transformer Lightning module with its specific hyperparameters.
+        # model = Transformer_Lightning(
+        model = UNetLightning(
+            #boson_params_to_use=boson_params_to_use,
             lr=cfg.hyperparameters.lr,
-            latent_dim=latent_features,
-            embed_dim=cfg.hyperparameters.get("embed_dim", 256),
-            num_layers=cfg.hyperparameters.get("num_layers", 4),
+            #latent_dim=latent_features,
+            #embed_dim=cfg.hyperparameters.get("embed_dim", 256),
+            #num_layers=cfg.hyperparameters.get("num_layers", 4),
             output_dir=output_dir,
             # Assuming input_shape is provided as a list (e.g., [128, 128]).
-            input_shape=tuple(cfg.hyperparameters.get("input_shape", [128, 128]))
+            #input_shape=tuple(cfg.hyperparameters.get("input_shape", [128, 128]))
         )
         wandb_project = "transformer_sparrow"
         trainer = Trainer(
