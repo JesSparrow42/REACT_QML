@@ -246,14 +246,15 @@ class Generator(nn.Module):
         self.output_size = output_size
 
         self.fc = nn.Sequential(
-            nn.Linear(latent_dim, 512 * 4 * 4),
+            nn.Linear(latent_dim, 512 * 8* 8),
             nn.ReLU(inplace=True)
         )
 
-        self.dec1 = self.conv_block(512, 256)
-        self.dec2 = self.conv_block(256, 128)
-        self.dec3 = self.conv_block(128, 64)
-        self.dec4 = nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1)
+        self.dec1 = self.conv_block(512, 256) # 8 -> 16
+        self.dec2 = self.conv_block(256, 128) # 16 -> 32
+        self.dec3 = self.conv_block(128, 64) # 32 -> 64
+        self.dec4 = self.conv_block(64,32) # 64 -> 128
+        self.dec4 = nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1)
 
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
@@ -263,7 +264,7 @@ class Generator(nn.Module):
 
     def forward(self, z):
         x = self.fc(z)
-        x = x.view(-1, 512, 4, 4)
+        x = x.view(-1, 512, 8, 8)
         x = self.dec1(x)
         x = self.dec2(x)
         x = self.dec3(x)
@@ -340,8 +341,8 @@ class GAN_Lightning(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         opt_disc, opt_gen = self.optimizers()
         real_images = batch[1].to(self.device)
-        # Downscale real images to 64x64 and normalize.
-        real_downscaled = F.interpolate(real_images, size=(64, 64), mode='nearest')
+        # Downscale real images to 128x128 and normalize.
+        real_downscaled = F.interpolate(real_images, size=(128,128), mode='bilinear')
         real_downscaled = (real_downscaled - real_downscaled.min()) / (
             real_downscaled.max() - real_downscaled.min() + 1e-8)
         batch_size = real_images.size(0)
