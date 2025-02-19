@@ -11,6 +11,9 @@ from ptseries.models import PTGenerator  # your boson generator
 
 from vae.utils import save_images, dice_loss  # and any other helper functions as needed
 
+### To do
+# Parameter shift rule?
+
 # -----------------------------
 # VAE Components
 # -----------------------------
