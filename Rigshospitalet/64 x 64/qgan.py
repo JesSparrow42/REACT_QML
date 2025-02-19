@@ -14,6 +14,7 @@ class Generator(nn.Module):
         self.output_size = output_size
         
         # Initial layer to project latent vector into spatial dimensions
+        # Add pt layer
         self.fc = nn.Sequential(
             nn.Linear(latent_dim, 512 * 4 * 4),  # Project latent vector to a 4x4 spatial map
             nn.ReLU(inplace=True)
