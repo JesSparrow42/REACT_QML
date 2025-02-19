@@ -14,6 +14,7 @@ from vae.utils import save_images, dice_loss  # and any other helper functions a
 ### To do
 # Parameter shift rule?
 # Benchmarking
+# QM9
 
 # -----------------------------
 # VAE Components
