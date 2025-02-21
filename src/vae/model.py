@@ -10,6 +10,11 @@ from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
 from vae.utils import save_images, dice_loss  # and any other helper functions as needed
 
+### To do
+# Parameter shift rule?
+# Benchmarking - FID score/ KL
+# QM9
+
 # -----------------------------
 # VAE Components
 # -----------------------------
@@ -22,7 +27,12 @@ class BosonPrior(Distribution):
         self.boson_sampler = boson_sampler
         self.batch_size = batch_size
         self.latent_features = latent_features
-        self.device = torch.device("cpu")  # update as needed
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        else:
+            self.device = torch.device('cpu')
 
     def rsample(self, sample_shape=torch.Size()):
         # Note: DISCRIMINATOR_ITER should be defined externally or passed in
@@ -240,14 +250,15 @@ class Generator(nn.Module):
         self.output_size = output_size
 
         self.fc = nn.Sequential(
-            nn.Linear(latent_dim, 512 * 4 * 4),
+            nn.Linear(latent_dim, 512 * 8* 8),
             nn.ReLU(inplace=True)
         )
 
-        self.dec1 = self.conv_block(512, 256)
-        self.dec2 = self.conv_block(256, 128)
-        self.dec3 = self.conv_block(128, 64)
-        self.dec4 = nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1)
+        self.dec1 = self.conv_block(512, 256) # 8 -> 16
+        self.dec2 = self.conv_block(256, 128) # 16 -> 32
+        self.dec3 = self.conv_block(128, 64) # 32 -> 64
+        self.dec4 = self.conv_block(64,32) # 64 -> 128
+        self.dec4 = nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1)
 
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
@@ -257,7 +268,7 @@ class Generator(nn.Module):
 
     def forward(self, z):
         x = self.fc(z)
-        x = x.view(-1, 512, 4, 4)
+        x = x.view(-1, 512, 8, 8)
         x = self.dec1(x)
         x = self.dec2(x)
         x = self.dec3(x)
@@ -269,21 +280,23 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         self.model = nn.Sequential(
              nn.ZeroPad2d(2),
-             nn.Conv2d(1, 32, kernel_size=4, stride=2, padding=1, bias=False),
+             nn.Conv2d(1, 32, kernel_size=4, stride=2, padding=1, bias=False), # 128 -> 64
              nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1, bias=False),
+             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1, bias=False), # 64 -> 32
              nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1, bias=False),
+             nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1, bias=False), # 32 -> 16
              nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(128, 256, kernel_size=2, stride=2, padding=1, bias=False),
+             nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1, bias=False), # 16 -> 8
              nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(256, 1, kernel_size=2, stride=1, padding=0, bias=False),
+             nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1, bias=False), # 8 -> 4
+             nn.LeakyReLU(0.2, inplace=True),
+             nn.Conv2d(512, 1, kernel_size=4, stride=1, padding=0, bias=False), # 4 -> 1
          )
 
     def forward(self, x):
         x = x.to(torch.float32)
         # Remove singleton dimensions from output
-        return self.model(x).squeeze(3).squeeze(2).squeeze(1)
+        return self.model(x).squeeze()
 
 class GAN_Lightning(pl.LightningModule):
     def __init__(self, boson_sampler_params, gen_lr, disc_lr, latent_dim, output_size=64, output_dir="gan_images",
@@ -334,8 +347,8 @@ class GAN_Lightning(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         opt_disc, opt_gen = self.optimizers()
         real_images = batch[1].to(self.device)
-        # Downscale real images to 64x64 and normalize.
-        real_downscaled = F.interpolate(real_images, size=(64, 64), mode='nearest')
+        # Downscale real images to 128x128 and normalize.
+        real_downscaled = F.interpolate(real_images, size=(128,128), mode='bilinear')
         real_downscaled = (real_downscaled - real_downscaled.min()) / (
             real_downscaled.max() - real_downscaled.min() + 1e-8)
         batch_size = real_images.size(0)

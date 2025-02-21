@@ -18,15 +18,15 @@ from utils import *
 ###
 
 def main():
-    ### HYPERPARAMETERS
+    ### HYPERPARAMETERS # Only optimize boson sampler parameters
     boson_sampler_params = {
-        "input_state": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0], # |1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0>
+        "input_state": [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0], # |1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0> # Higher photon number occupancy
         "tbi_params": {
             "input_loss": 0.0,
             "detector_efficiency": 1,
             "bs_loss": 0,
             "bs_noise": 0,
-            "distinguishable": False,
+            "distinguishable": False, # Keep False
             "n_signal_detectors": 0,
             "g2": 0,
             "tbi_type": "multi-loop",
@@ -48,8 +48,9 @@ def main():
     num_workers = 4  # Adjust this
     dicom_files = create_data_loader(ct_folder=ct_folder, pet_folder=pet_folder, num_workers=num_workers, augment=False)
 
-    # Create latent space
-    latent_space = PTGenerator(**boson_sampler_params)
+    # Create latent space # train 
+    latent_space = PTGenerator(**boson_sampler_params) # Centering to make more like gaussian
+    # Global mean or mean per mode
 
     if torch.backends.mps.is_available():
         device = torch.device("mps")
