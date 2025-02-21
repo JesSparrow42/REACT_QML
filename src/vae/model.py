@@ -8,7 +8,6 @@ from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
-
 from vae.utils import save_images, dice_loss  # and any other helper functions as needed
 
 ### To do
@@ -541,7 +540,8 @@ class TransformerGenerator(nn.Module):
         self.num_layers = num_layers
 
         # Learnable embedding for discrete latent tokens
-        self.latent_embedding = nn.Embedding(latent_dim, embed_dim)
+        #self.latent_embedding = nn.Embedding(latent_dim, embed_dim)
+        self.latent_embed_matrix = nn.Parameter(torch.randn(latent_dim, embed_dim))
         # A simple PET encoder: encodes a PET scan into an embedding vector
         self.pet_encoder = nn.Sequential(
             nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
@@ -566,7 +566,7 @@ class TransformerGenerator(nn.Module):
         else:
             self.boson_sampler = None
 
-    def forward(self, pet_image, latent_token):
+    def forward(self, pet_image, soft_tokens):
         """
         Args:
             pet_image (tensor): PET scans of shape (B, 1, H, W).
@@ -579,18 +579,32 @@ class TransformerGenerator(nn.Module):
         pet_feat = self.pet_encoder(pet_image)  # shape: (B, embed_dim)
         memory = pet_feat.unsqueeze(0)           # shape: (1, B, embed_dim)
         # Get embedding for latent tokens and add positional encoding
-        token_embed = self.latent_embedding(latent_token)  # shape: (B, embed_dim)
+        token_embed = torch.matmul(soft_tokens, self.latent_embed_matrix)
         tgt = token_embed.unsqueeze(0) + self.pos_embedding  # shape: (1, B, embed_dim)
         # Transformer decoder: use the PET features as memory to condition generation
         out = self.transformer_decoder(tgt, memory)  # shape: (1, B, embed_dim)
         out = out.squeeze(0)  # shape: (B, embed_dim)
         # Project transformer output to the flattened CT image space
-        ct_flat = self.fc_out(out)  # shape: (B, input_dim)
+        ct_flat = torch.sigmoid(self.fc_out(out))  # If your CT is scaled to [0,1]
+        #ct_flat = self.fc_out(out)  # shape: (B, input_dim)
         return ct_flat
 
 # -----------------------------------------
 # Transformer Lightning Module Definition
 # -----------------------------------------
+def gumbel_softmax_sample(logits, temperature=1.0):
+    """
+    Draw a sample from Gumbel-Softmax distribution.
+    Returns a (batch_size, latent_dim) 'soft' one-hot vector.
+    """
+    noise = torch.rand_like(logits)
+    # Add gumbel noise
+    gumbel = -torch.log(-torch.log(noise + 1e-10) + 1e-10)
+    # Add and normalize
+    y = logits + gumbel
+    return F.softmax(y / temperature, dim=-1)
+
+
 class Transformer_Lightning(pl.LightningModule):
     def __init__(self, boson_params_to_use, lr, latent_dim, embed_dim, num_layers, output_dir, input_shape):
         """
@@ -610,6 +624,7 @@ class Transformer_Lightning(pl.LightningModule):
         self.input_shape = input_shape  # e.g. (128, 128)
         self.input_dim = int(np.prod(input_shape))  # e.g. 128*128 = 16384
         self.latent_dim = latent_dim
+        self.transform_logits = nn.Parameter(torch.zeros(latent_dim))
 
         self.model = TransformerGenerator(
             input_dim=self.input_dim,
@@ -620,36 +635,32 @@ class Transformer_Lightning(pl.LightningModule):
         )
         self.loss_fn = nn.L1Loss()
 
-    def forward(self, pet_image, latent_token):
-        return self.model(pet_image, latent_token)
+    def forward(self, pet_image, soft_tokens):
+        return self.model(pet_image, soft_tokens)
 
-    def sample_latent_token(self, batch_size):
+    def sample_latent_token(self, batch_size, temperature=1.0):
         """
         Samples a batch of latent tokens by combining the boson sampler’s output with a simulated transformer distribution.
         """
-        latent_size = self.hparams.latent_dim  # number of discrete tokens
+        #latent_size = self.hparams.latent_dim  # number of discrete tokens
 
         if self.model.boson_sampler is not None:
-            boson_sample = self.model.boson_sampler.generate(1)  # assume shape (1, latent_dim)
-            boson_distribution_tensor = F.softmax(boson_sample, dim=-1).squeeze(0)  # shape: (latent_dim,)
-            boson_distribution = boson_distribution_tensor.detach().cpu().numpy()
+            boson_logits = self.model.boson_sampler.generate(batch_size)  # assume shape (1, latent_dim)
+            #boson_distribution_tensor = F.softmax(boson_sample, dim=-1).squeeze(0)  # shape: (latent_dim,)
+            #boson_distribution = boson_distribution_tensor.detach().cpu().numpy()
         else:
-            boson_distribution = np.ones(latent_size) / latent_size
+            boson_logits = torch.zeros(batch_size, self.latent_dim, device=self.device)
 
-        transformer_probs = np.random.dirichlet(np.ones(latent_size))
+        transform_logits_batch = self.transform_logits.unsqueeze(0).expand(batch_size, -1)
         alpha = 0.6  # 60% weight for transformer predictions, 40% for boson sampler output.
-        combined_probs = alpha * transformer_probs + (1 - alpha) * boson_distribution
-        combined_probs /= combined_probs.sum()  # normalize
+        combined_logits = alpha * transform_logits_batch + (1 - alpha) * boson_logits
 
-        tokens = np.random.choice(latent_size, size=batch_size, p=combined_probs)
-        tokens = torch.tensor(tokens, dtype=torch.long, device=self.device)
-        return tokens
+        soft_tokens = gumbel_softmax_sample(combined_logits, temperature=temperature)
+        return soft_tokens
 
     def training_step(self, batch, batch_idx):
         pet_image, ct_image = batch
         batch_size = pet_image.size(0)
-        # Adjust target CT image: assume ct_image shape is (B, 1, H, W)
-        # Use only one channel (e.g. the first) and interpolate to self.input_shape.
         target = ct_image[:, 0, :, :].to(self.device)
         target = F.interpolate(target.unsqueeze(1),
                                size=self.input_shape,
@@ -657,8 +668,8 @@ class Transformer_Lightning(pl.LightningModule):
                                align_corners=False).squeeze(1)
         target = target.view(batch_size, -1)  # Flatten to (B, prod(input_shape))
 
-        latent_tokens = self.sample_latent_token(batch_size)
-        generated_ct_flat = self(pet_image, latent_tokens)
+        soft_tokens = self.sample_latent_token(batch_size, temperature=1.0)
+        generated_ct_flat = self(pet_image, soft_tokens)
         loss = self.loss_fn(generated_ct_flat, target)
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
         return loss
@@ -673,21 +684,174 @@ class Transformer_Lightning(pl.LightningModule):
                                align_corners=False).squeeze(1)
         target = target.view(batch_size, -1)
 
-        latent_tokens = self.sample_latent_token(batch_size)
-        generated_ct_flat = self(pet_image, latent_tokens)
+        soft_tokens = self.sample_latent_token(batch_size, temperature=0.5)
+        generated_ct_flat = self(pet_image, soft_tokens)
         loss = self.loss_fn(generated_ct_flat, target)
         self.log("val_loss", loss, prog_bar=True)
 
         if batch_idx == 0:
             generated_ct = generated_ct_flat.view(batch_size, *self.input_shape).detach().cpu().numpy()
             target_images = target.view(batch_size, *self.input_shape).detach().cpu().numpy()
-            os.makedirs(self.output_dir, exist_ok=True)
-            for i in range(min(batch_size, 5)):
-                plt.imsave(os.path.join(self.output_dir, f'epoch_{self.current_epoch}_generated_{i}.png'),
-                           generated_ct[i], cmap='gray')
-                plt.imsave(os.path.join(self.output_dir, f'epoch_{self.current_epoch}_target_{i}.png'),
-                           target_images[i], cmap='gray')
+            from vae.utils import save_images
+            save_images(
+                target_images,             # ground truth
+                generated_ct,             # predicted
+                self.output_dir,
+                self.current_epoch,
+                expected_shape=tuple(self.input_shape)
+            )
+
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        # Combine them into one list so both the generator and transform_logits update
+        return torch.optim.Adam(
+            list(self.model.parameters()) + [self.transform_logits],
+            lr=self.lr
+        )
+
+
+
+class UNetBlockUp(nn.Module):
+    """
+    One up-sampling block: up-conv -> concat -> Conv -> Conv.
+    Now accepts skip connection channels explicitly.
+    """
+    def __init__(self, in_channels, skip_channels, out_channels):
+        super().__init__()
+        # upconv reduces channel count from in_channels to out_channels
+        self.upconv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
+        # After concatenation, channels = out_channels (from upconv) + skip_channels
+        self.conv1 = nn.Conv2d(out_channels + skip_channels, out_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x, skip):
+        x = self.upconv(x)
+        # If spatial dimensions differ slightly due to pooling/cropping, adjust them.
+        if x.shape[2:] != skip.shape[2:]:
+            diffY = skip.size()[2] - x.size()[2]
+            diffX = skip.size()[3] - x.size()[3]
+            skip = skip[:, :, diffY // 2 : diffY // 2 + x.size()[2], diffX // 2 : diffX // 2 + x.size()[3]]
+        x = torch.cat([x, skip], dim=1)
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.bn2(self.conv2(x)))
+        return x
+
+class UNetBlockDown(nn.Module):
+    """
+    One down-sampling block: Conv -> Conv -> optional down-sample.
+    """
+    def __init__(self, in_channels, out_channels, pool=True):
+        super().__init__()
+        self.pool = pool
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.pool_layer = nn.MaxPool2d(kernel_size=2, stride=2) if pool else nn.Identity()
+
+    def forward(self, x):
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.bn2(self.conv2(x)))
+        before_pool = x
+        if self.pool:
+            x = self.pool_layer(x)
+        return x, before_pool
+
+class UNetGenerator(nn.Module):
+    def __init__(self, in_channels=1, out_channels=1, base_filters=64):
+        super().__init__()
+        # Encoder
+        self.down1 = UNetBlockDown(in_channels, base_filters, pool=False)              # out: 64
+        self.down2 = UNetBlockDown(base_filters, base_filters * 2, pool=True)            # out: 128
+        self.down3 = UNetBlockDown(base_filters * 2, base_filters * 4, pool=True)        # out: 256
+        self.down4 = UNetBlockDown(base_filters * 4, base_filters * 8, pool=True)        # out: 512
+
+        # Decoder
+        # Note: The skip connection in each up block is taken from the same block's "before pooling" output.
+        # For down4, skip4 has 512 channels, so we set skip_channels accordingly.
+        self.up1 = UNetBlockUp(in_channels=base_filters * 8, skip_channels=base_filters * 8, out_channels=base_filters * 4)
+        self.up2 = UNetBlockUp(in_channels=base_filters * 4, skip_channels=base_filters * 4, out_channels=base_filters * 2)
+        self.up3 = UNetBlockUp(in_channels=base_filters * 2, skip_channels=base_filters * 2, out_channels=base_filters)
+
+        # Final conv => out_channels
+        self.final_conv = nn.Conv2d(base_filters, out_channels, kernel_size=1)
+
+    def forward(self, x):
+        x1, skip1 = self.down1(x)  # skip1: (B,64,H,W)
+        x2, skip2 = self.down2(x1) # skip2: (B,128,H,W)
+        x3, skip3 = self.down3(x2) # skip3: (B,256,H/2,W/2)
+        x4, skip4 = self.down4(x3) # skip4: (B,512,H/4,W/4)
+        # Decoder: each up block gets the corresponding skip connection.
+        # Here, x4 (B,512,H/8,W/8) is upsampled and concatenated with skip4 (B,512,H/4,W/4)
+        x = self.up1(x4, skip4)  # After up1, output: (B,256,H/4,W/4)
+        x = self.up2(x, skip3)   # After up2, output: (B,128,H/2,W/2)
+        x = self.up3(x, skip2)   # After up3, output: (B,64,H,W)
+        out = self.final_conv(x)
+        return torch.sigmoid(out)
+
+
+class UNetLightning(pl.LightningModule):
+    """
+    A LightningModule using U-Net to predict CT images from PET.
+    This version resizes CT targets to match the UNet output size.
+    """
+    def __init__(self, lr, output_dir):
+        super().__init__()
+        self.save_hyperparameters()
+        self.lr = lr
+        self.output_dir = output_dir
+        self.model = UNetGenerator(in_channels=1, out_channels=1, base_filters=64)
+        self.loss_fn = nn.L1Loss()
+
+    def forward(self, x):
+        return self.model(x)
+
+    def training_step(self, batch, batch_idx):
+        pet_image, ct_image = batch
+        pred_ct = self.model(pet_image)
+        # Resize CT images to match the predicted output size
+        ct_image_resized = F.interpolate(ct_image, size=pred_ct.shape[-2:], mode='bilinear', align_corners=False)
+        loss = self.loss_fn(pred_ct, ct_image_resized)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        pet_image, ct_image = batch
+        pred_ct = self.model(pet_image)
+        # Resize CT images to match the predicted output size
+        ct_image_resized = F.interpolate(ct_image, size=pred_ct.shape[-2:], mode='bilinear', align_corners=False)
+        loss = self.loss_fn(pred_ct, ct_image_resized)
+        self.log("val_loss", loss, prog_bar=True)
+
+        # Save images for visualization on the first batch
+        if batch_idx == 0:
+            # Detach and move to CPU
+            generated_ct = pred_ct.detach().cpu().numpy()
+            target_images = ct_image_resized.detach().cpu().numpy()
+
+            # Squeeze the channel dimension if present (e.g. shape: (B, 1, H, W) -> (B, H, W))
+            if generated_ct.shape[1] == 1:
+                generated_ct = generated_ct.squeeze(1)
+            if target_images.shape[1] == 1:
+                target_images = target_images.squeeze(1)
+
+            from vae.utils import save_images
+            save_images(
+                target_images,             # ground truth
+                generated_ct,              # predicted
+                self.output_dir,
+                self.current_epoch,
+                expected_shape=tuple(pred_ct.shape[-2:])
+            )
+
+        return loss
+
+
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
