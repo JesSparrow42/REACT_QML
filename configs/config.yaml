@@ -6,8 +6,8 @@ hyperparameters:
   gen_lr: 0.0004
   disc_lr: 2e-6
   latent_features: 8
-  output_dir: "transformer_images" # vae, transformer or gan
-  model_type: "transformer" # "vae", "transformer" or "gan"
+  output_dir: "results/diffusion_images" # vae, transformer or gan
+  model_type: "diffusion" # "vae", "transformer" or "gan"
   gan_output_size: 512
   boson_sampler_params: "false"
   ct_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805"

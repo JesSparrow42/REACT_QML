@@ -18,7 +18,7 @@ from omegaconf import DictConfig, OmegaConf
 
 # Assume you have a MedicalDataModule defined in your project
 from data import MedicalDataModule
-from model import GAN_Lightning, VAE_Lightning, Transformer_Lightning, UNetLightning
+from model import GAN_Lightning, VAE_Lightning, DiffusionLightning, UNetLightning
 #from transformer import Transformer_Lightning
 from utils import load_separate_checkpoints
 
@@ -116,11 +116,7 @@ def main(cfg: DictConfig):
             #boson_params_to_use=boson_params_to_use,
             lr=cfg.hyperparameters.lr,
             #latent_dim=latent_features,
-            #embed_dim=cfg.hyperparameters.get("embed_dim", 256),
-            #num_layers=cfg.hyperparameters.get("num_layers", 4),
             output_dir=output_dir,
-            # Assuming input_shape is provided as a list (e.g., [128, 128]).
-            #input_shape=tuple(cfg.hyperparameters.get("input_shape", [128, 128]))
         )
         wandb_project = "transformer_sparrow"
         trainer = Trainer(
@@ -129,6 +125,22 @@ def main(cfg: DictConfig):
             logger=pl.loggers.WandbLogger(project=wandb_project),
             gradient_clip_val=0.5
         )
+
+    elif model_type == "diffusion":
+        print(">> Training Diffusion model.")
+        model = DiffusionLightning(
+            latent_features=latent_features,
+            output_dir=output_dir,
+            boson_params_to_use=boson_params_to_use,  # will be None if using standard Gaussian
+            lr=cfg.hyperparameters.lr
+        )
+        wandb_project = "diffusion_sparrow"
+        trainer = Trainer(
+            default_root_dir="my_logs_dir",
+            max_epochs=cfg.hyperparameters.n_epochs,
+            logger=pl.loggers.WandbLogger(project=wandb_project),
+            gradient_clip_val=0.5
+    )
 
     else:
         raise ValueError(f"Unknown model type: {model_type}")
