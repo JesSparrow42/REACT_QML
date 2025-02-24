@@ -520,197 +520,6 @@ class GAN_Lightning(pl.LightningModule):
         gen_optimizer = torch.optim.Adam(self.generator.parameters(), lr=self.gen_lr)
         return [disc_optimizer, gen_optimizer]
 
-# -----------------------------------------
-# Transformer Generator Model Definition
-# -----------------------------------------
-class TransformerGenerator(nn.Module):
-    def __init__(self, input_dim, latent_dim, embed_dim, num_layers, boson_sampler_params=None):
-        """
-        Args:
-            input_dim (int): Flattened CT image dimension (e.g. 128*128 = 16384).
-            latent_dim (int): Size of the discrete latent space (number of tokens).
-            embed_dim (int): Embedding dimension for both PET features and latent tokens.
-            num_layers (int): Number of transformer decoder layers.
-            boson_sampler_params (dict, optional): Parameters for initializing the boson sampler.
-        """
-        super().__init__()
-        self.input_dim = input_dim
-        self.latent_dim = latent_dim
-        self.embed_dim = embed_dim
-        self.num_layers = num_layers
-
-        # Learnable embedding for discrete latent tokens
-        #self.latent_embedding = nn.Embedding(latent_dim, embed_dim)
-        self.latent_embed_matrix = nn.Parameter(torch.randn(latent_dim, embed_dim))
-        # A simple PET encoder: encodes a PET scan into an embedding vector
-        self.pet_encoder = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Linear(64, embed_dim)
-        )
-        # Positional embedding for the latent token
-        self.pos_embedding = nn.Parameter(torch.randn(1, 1, embed_dim))
-        # Transformer decoder (using PyTorch’s built-in modules)
-        decoder_layer = nn.TransformerDecoderLayer(d_model=embed_dim, nhead=8)
-        self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
-        # Final projection from transformer output to a flattened CT image
-        self.fc_out = nn.Linear(embed_dim, input_dim)
-
-        # Instantiate boson sampler if parameters are provided
-        if boson_sampler_params is not None:
-            self.boson_sampler = PTGenerator(**boson_sampler_params)
-        else:
-            self.boson_sampler = None
-
-    def forward(self, pet_image, soft_tokens):
-        """
-        Args:
-            pet_image (tensor): PET scans of shape (B, 1, H, W).
-            latent_token (tensor): Discrete latent token indices of shape (B,).
-        Returns:
-            ct_flat (tensor): Generated CT images as flattened vectors (B, input_dim).
-        """
-        batch_size = pet_image.size(0)
-        # Encode PET image to a feature vector (memory for transformer)
-        pet_feat = self.pet_encoder(pet_image)  # shape: (B, embed_dim)
-        memory = pet_feat.unsqueeze(0)           # shape: (1, B, embed_dim)
-        # Get embedding for latent tokens and add positional encoding
-        token_embed = torch.matmul(soft_tokens, self.latent_embed_matrix)
-        tgt = token_embed.unsqueeze(0) + self.pos_embedding  # shape: (1, B, embed_dim)
-        # Transformer decoder: use the PET features as memory to condition generation
-        out = self.transformer_decoder(tgt, memory)  # shape: (1, B, embed_dim)
-        out = out.squeeze(0)  # shape: (B, embed_dim)
-        # Project transformer output to the flattened CT image space
-        ct_flat = torch.sigmoid(self.fc_out(out))  # If your CT is scaled to [0,1]
-        #ct_flat = self.fc_out(out)  # shape: (B, input_dim)
-        return ct_flat
-
-# -----------------------------------------
-# Transformer Lightning Module Definition
-# -----------------------------------------
-def gumbel_softmax_sample(logits, temperature=1.0):
-    """
-    Draw a sample from Gumbel-Softmax distribution.
-    Returns a (batch_size, latent_dim) 'soft' one-hot vector.
-    """
-    noise = torch.rand_like(logits)
-    # Add gumbel noise
-    gumbel = -torch.log(-torch.log(noise + 1e-10) + 1e-10)
-    # Add and normalize
-    y = logits + gumbel
-    return F.softmax(y / temperature, dim=-1)
-
-
-class Transformer_Lightning(pl.LightningModule):
-    def __init__(self, boson_params_to_use, lr, latent_dim, embed_dim, num_layers, output_dir, input_shape):
-        """
-        Args:
-            boson_params_to_use (dict): Parameters for the boson sampler.
-            lr (float): Learning rate.
-            latent_dim (int): Discrete latent space size.
-            embed_dim (int): Embedding dimension for the transformer.
-            num_layers (int): Number of transformer decoder layers.
-            output_dir (str): Directory to save generated images.
-            input_shape (tuple): Expected shape of CT images (e.g., (128, 128)).
-        """
-        super().__init__()
-        self.save_hyperparameters()
-        self.lr = lr
-        self.output_dir = output_dir
-        self.input_shape = input_shape  # e.g. (128, 128)
-        self.input_dim = int(np.prod(input_shape))  # e.g. 128*128 = 16384
-        self.latent_dim = latent_dim
-        self.transform_logits = nn.Parameter(torch.zeros(latent_dim))
-
-        self.model = TransformerGenerator(
-            input_dim=self.input_dim,
-            latent_dim=latent_dim,
-            embed_dim=embed_dim,
-            num_layers=num_layers,
-            boson_sampler_params=boson_params_to_use
-        )
-        self.loss_fn = nn.L1Loss()
-
-    def forward(self, pet_image, soft_tokens):
-        return self.model(pet_image, soft_tokens)
-
-    def sample_latent_token(self, batch_size, temperature=1.0):
-        """
-        Samples a batch of latent tokens by combining the boson sampler’s output with a simulated transformer distribution.
-        """
-        #latent_size = self.hparams.latent_dim  # number of discrete tokens
-
-        if self.model.boson_sampler is not None:
-            boson_logits = self.model.boson_sampler.generate(batch_size)  # assume shape (1, latent_dim)
-            #boson_distribution_tensor = F.softmax(boson_sample, dim=-1).squeeze(0)  # shape: (latent_dim,)
-            #boson_distribution = boson_distribution_tensor.detach().cpu().numpy()
-        else:
-            boson_logits = torch.zeros(batch_size, self.latent_dim, device=self.device)
-
-        transform_logits_batch = self.transform_logits.unsqueeze(0).expand(batch_size, -1)
-        alpha = 0.6  # 60% weight for transformer predictions, 40% for boson sampler output.
-        combined_logits = alpha * transform_logits_batch + (1 - alpha) * boson_logits
-
-        soft_tokens = gumbel_softmax_sample(combined_logits, temperature=temperature)
-        return soft_tokens
-
-    def training_step(self, batch, batch_idx):
-        pet_image, ct_image = batch
-        batch_size = pet_image.size(0)
-        target = ct_image[:, 0, :, :].to(self.device)
-        target = F.interpolate(target.unsqueeze(1),
-                               size=self.input_shape,
-                               mode='bilinear',
-                               align_corners=False).squeeze(1)
-        target = target.view(batch_size, -1)  # Flatten to (B, prod(input_shape))
-
-        soft_tokens = self.sample_latent_token(batch_size, temperature=1.0)
-        generated_ct_flat = self(pet_image, soft_tokens)
-        loss = self.loss_fn(generated_ct_flat, target)
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        pet_image, ct_image = batch
-        batch_size = pet_image.size(0)
-        target = ct_image[:, 0, :, :].to(self.device)
-        target = F.interpolate(target.unsqueeze(1),
-                               size=self.input_shape,
-                               mode='bilinear',
-                               align_corners=False).squeeze(1)
-        target = target.view(batch_size, -1)
-
-        soft_tokens = self.sample_latent_token(batch_size, temperature=0.5)
-        generated_ct_flat = self(pet_image, soft_tokens)
-        loss = self.loss_fn(generated_ct_flat, target)
-        self.log("val_loss", loss, prog_bar=True)
-
-        if batch_idx == 0:
-            generated_ct = generated_ct_flat.view(batch_size, *self.input_shape).detach().cpu().numpy()
-            target_images = target.view(batch_size, *self.input_shape).detach().cpu().numpy()
-            from vae.utils import save_images
-            save_images(
-                target_images,             # ground truth
-                generated_ct,             # predicted
-                self.output_dir,
-                self.current_epoch,
-                expected_shape=tuple(self.input_shape)
-            )
-
-        return loss
-
-    def configure_optimizers(self):
-        # Combine them into one list so both the generator and transform_logits update
-        return torch.optim.Adam(
-            list(self.model.parameters()) + [self.transform_logits],
-            lr=self.lr
-        )
-
-
 
 class UNetBlockUp(nn.Module):
     """
@@ -851,7 +660,148 @@ class UNetLightning(pl.LightningModule):
 
         return loss
 
-
-
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+
+
+# --- Diffusion Lightning Module ---
+class DiffusionLightning(pl.LightningModule):
+    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
+        """
+        Required parameters:
+          - boson_params_to_use: dictionary for boson sampler (or None for Gaussian)
+          - lr: learning rate
+          - latent_features: number of latent features for the prior
+          - output_dir: directory to save images
+        Other diffusion parameters (image size, timesteps, beta schedule) are defined here.
+        """
+        super().__init__()
+        self.save_hyperparameters()
+        self.lr = lr
+        self.output_dir = output_dir
+
+        # Set up boson sampler if provided.
+        self.boson_sampler = None
+        if boson_params_to_use is not None:
+            self.boson_sampler = PTGenerator(**boson_params_to_use)
+        self.latent_features = latent_features
+
+        # Hard-coded settings:
+        self.image_size = (128, 128)
+        self.timesteps = 1000
+        self.beta_start = 1e-4
+        self.beta_end = 0.02
+        # We'll condition on PET so:
+        #   - The U-Net input is [PET, noisy CT] with 2 channels.
+        self.in_channels = 2
+        self.out_channels = 1
+        self.base_filters = 64
+
+        # Build U-Net with in_channels=2
+        self.unet = UNetGenerator(in_channels=self.in_channels,
+                                  out_channels=self.out_channels,
+                                  base_filters=self.base_filters)
+
+        # Noise schedule
+        betas = torch.linspace(self.beta_start, self.beta_end, self.timesteps)
+        self.register_buffer('betas', betas)
+        alphas = 1.0 - betas
+        alpha_bars = torch.cumprod(alphas, dim=0)
+        self.register_buffer('alpha_bars', alpha_bars)
+
+        # Prior parameters for Gaussian prior
+        prior_init = torch.zeros(1, 2 * self.latent_features)
+        self.register_buffer("prior_params", prior_init)
+
+        required_dim = self.image_size[0] * self.image_size[1] * self.out_channels
+        if self.latent_features != required_dim:
+            self.noise_projector = nn.Linear(self.latent_features, required_dim)
+        else:
+            self.noise_projector = None
+
+        self.loss_fn = nn.MSELoss()
+
+    def prior(self, batch_size: int) -> Distribution:
+        if self.boson_sampler is not None:
+            return BosonPrior(boson_sampler=self.boson_sampler,
+                              batch_size=batch_size,
+                              latent_features=self.latent_features)
+        else:
+            prior_params = self.prior_params.expand(batch_size, -1)
+            mu, log_sigma = prior_params.chunk(2, dim=-1)
+            return ReparameterizedDiagonalGaussian(mu, log_sigma)
+
+    def q_sample(self, ct_clean, t):
+        """
+        Add noise to the clean CT image (ct_clean) at timestep t.
+        Returns:
+          x_t: Noisy CT image,
+          noise: Noise that was added,
+          sqrt_alpha_bar, sqrt_one_minus_alpha_bar: scaling factors.
+        """
+        dist = self.prior(batch_size=ct_clean.size(0))
+        noise = dist.rsample()  # shape: (B, latent_features)
+        if self.noise_projector is not None:
+            noise = self.noise_projector(noise)
+        noise = noise.view(ct_clean.size(0), ct_clean.size(1), self.image_size[0], self.image_size[1])
+        sqrt_alpha_bar = self.alpha_bars[t].sqrt().view(-1, 1, 1, 1)
+        sqrt_one_minus_alpha_bar = (1 - self.alpha_bars[t]).sqrt().view(-1, 1, 1, 1)
+        x_t = sqrt_alpha_bar * ct_clean + sqrt_one_minus_alpha_bar * noise
+        return x_t, noise, sqrt_alpha_bar, sqrt_one_minus_alpha_bar
+
+    def forward(self, pet_image, ct_clean, t):
+        """
+        For inference you can provide a PET image and a CT image (or noise schedule t) 
+        to predict noise. In training, we add noise to the CT.
+        """
+        # Add noise to CT
+        x_t, noise, _, _ = self.q_sample(ct_clean, t)
+        # Concatenate conditioning PET image with noisy CT along channel dimension.
+        # Assume pet_image has shape (B, 1, H, W) and ct_clean (or x_t) is (B, 1, H, W)
+        cond_input = torch.cat([pet_image, x_t], dim=1)  # shape: (B, 2, H, W)
+        noise_pred = self.unet(cond_input)
+        return noise_pred, noise
+
+    def training_step(self, batch, batch_idx):
+        # batch: (pet_image, ct_image)
+        pet_image, ct_image = batch
+        # Resize both images to (128,128)
+        pet_image = F.interpolate(pet_image, size=self.image_size, mode='bilinear', align_corners=False)
+        ct_image = F.interpolate(ct_image, size=self.image_size, mode='bilinear', align_corners=False)
+        B = ct_image.size(0)
+        t = torch.randint(0, self.timesteps, (B,), device=self.device, dtype=torch.long)
+        x_t, noise, _, _ = self.q_sample(ct_image, t)
+        cond_input = torch.cat([pet_image, x_t], dim=1)
+        noise_pred = self.unet(cond_input)
+        loss = self.loss_fn(noise_pred, noise)
+        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        pet_image, ct_image = batch
+        pet_image = F.interpolate(pet_image, size=self.image_size, mode='bilinear', align_corners=False)
+        ct_image = F.interpolate(ct_image, size=self.image_size, mode='bilinear', align_corners=False)
+        B = ct_image.size(0)
+        t = torch.randint(0, self.timesteps, (B,), device=self.device, dtype=torch.long)
+        x_t, noise, sqrt_alpha_bar, sqrt_one_minus_alpha_bar = self.q_sample(ct_image, t)
+        cond_input = torch.cat([pet_image, x_t], dim=1)
+        noise_pred = self.unet(cond_input)
+        loss = self.loss_fn(noise_pred, noise)
+        self.log("val_loss", loss, prog_bar=True)
+
+        # Reconstruct the CT image from predicted noise:
+        x0_pred = (x_t - sqrt_one_minus_alpha_bar * noise_pred) / sqrt_alpha_bar
+
+        if batch_idx == 0:
+            x0_pred_np = x0_pred.detach().cpu().numpy()
+            ct_clean_np = ct_image.detach().cpu().numpy()
+            if x0_pred_np.shape[1] == 1:
+                x0_pred_np = x0_pred_np.squeeze(1)
+            if ct_clean_np.shape[1] == 1:
+                ct_clean_np = ct_clean_np.squeeze(1)
+            save_images(ct_clean_np, x0_pred_np, self.output_dir, self.current_epoch,
+                        expected_shape=tuple(x_t.shape[-2:]))
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
