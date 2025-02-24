@@ -1,9 +1,7 @@
 repo_name/
 simple_repo/
 advance_repo/
-vae_images/
-gan_images/
-transformer_images/
+results/
 wandb/
 *.bkp
 
