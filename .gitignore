@@ -22,6 +22,7 @@ outputs/
 vae_sparrow
 gan_sparrow
 transformer_sparrow
+diffusion_sparrow
 # Ignore Python cache files
 __pycache__/
 *.pyc
