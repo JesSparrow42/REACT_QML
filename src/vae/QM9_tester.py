@@ -1,20 +1,15 @@
-# train.py
-import sys
-# Preprocess sys.argv to remove extra dashes for Hydra overrides.
-new_args = []
-for arg in sys.argv[1:]:
-    if arg.startswith("--hyperparameters."):
-        new_args.append(arg.lstrip("-"))
-    else:
-        new_args.append(arg)
-sys.argv = [sys.argv[0]] + new_args
-
 import os
+import json
+import pickle
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import pytorch_lightning as pl
+from torch.utils.data import DataLoader, Dataset
+from ase.db import connect
+from ase import Atoms
 from pytorch_lightning import Trainer
-import hydra
-from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning.callbacks import TQDMProgressBar
 
 # Assume you have a MedicalDataModule defined in your project
 from data import MedicalDataModule, QM9DataModule
