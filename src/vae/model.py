@@ -12,8 +12,8 @@ from vae.utils import save_images, dice_loss  # and any other helper functions a
 
 ### To do
 # Parameter shift rule?
-# Benchmarking - FID score/ KL
-# QM9
+# Benchmarking - FID score/ KL - DONE(Maybe add MAE)
+# QM9 - DONE
 
 # -----------------------------
 # VAE Components
