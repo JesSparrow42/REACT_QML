@@ -18,7 +18,7 @@ from omegaconf import DictConfig, OmegaConf
 
 # Assume you have a MedicalDataModule defined in your project
 from data import MedicalDataModule
-from model import GAN_Lightning, VAE_Lightning, DiffusionLightning, UNetLightning
+from model import GAN_Lightning, VAE_Lightning, DiffusionLightning, UNetLightning, GraphVAE_Lightning
 #from transformer import Transformer_Lightning
 from utils import load_separate_checkpoints
 
