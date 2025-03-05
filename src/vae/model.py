@@ -180,11 +180,12 @@ class VariationalInference(nn.Module):
         return loss, diagnostics, outputs
 
 class VAE_Lightning(pl.LightningModule):
-    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
+    def __init__(self, boson_params_to_use, lr, latent_features, output_dir_orig, output_dir_reco):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
-        self.output_dir = output_dir
+        self.output_dir_orig = output_dir_orig
+        self.output_dir_reco = output_dir_reco
         self.latent_features = latent_features
 
         self.vae = VariationalAutoencoder(
@@ -230,7 +231,7 @@ class VAE_Lightning(pl.LightningModule):
                 original_ct = ct_image_target.cpu().numpy()
                 # Use the VAE's input shape as the expected shape (e.g., (128,128))
                 from vae.utils import save_images
-                save_images(original_ct, reconstructed_ct, self.output_dir, self.current_epoch,
+                save_images(original_ct, reconstructed_ct, self.output_dir_orig, self.output_dir_reco, self.current_epoch,
                             expected_shape=tuple(self.vae.input_shape))
         return loss
 
@@ -653,7 +654,8 @@ class UNetLightning(pl.LightningModule):
             save_images(
                 target_images,             # ground truth
                 generated_ct,              # predicted
-                self.output_dir,
+                self.output_dir_orig,
+                self.output_dir_reco,
                 self.current_epoch,
                 expected_shape=tuple(pred_ct.shape[-2:])
             )
@@ -666,7 +668,7 @@ class UNetLightning(pl.LightningModule):
 
 # --- Diffusion Lightning Module ---
 class DiffusionLightning(pl.LightningModule):
-    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
+    def __init__(self, boson_params_to_use, lr, latent_features, output_dir_orig, output_dir_reco):
         """
         Required parameters:
           - boson_params_to_use: dictionary for boson sampler (or None for Gaussian)
@@ -678,7 +680,9 @@ class DiffusionLightning(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
-        self.output_dir = output_dir
+        self.output_dir_orig = output_dir_orig
+        self.output_dir_reco = output_dir_reco
+
 
         # Set up boson sampler if provided.
         self.boson_sampler = None
@@ -799,7 +803,7 @@ class DiffusionLightning(pl.LightningModule):
                 x0_pred_np = x0_pred_np.squeeze(1)
             if ct_clean_np.shape[1] == 1:
                 ct_clean_np = ct_clean_np.squeeze(1)
-            save_images(ct_clean_np, x0_pred_np, self.output_dir, self.current_epoch,
+            save_images(ct_clean_np, x0_pred_np, self.output_dir_orig, self.output_dir_reco, self.current_epoch,
                         expected_shape=tuple(x_t.shape[-2:]))
         return loss
 

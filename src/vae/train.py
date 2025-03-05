@@ -54,6 +54,8 @@ def main(cfg: DictConfig):
 
     latent_features = cfg.hyperparameters.get("latent_features", 8)
     output_dir = cfg.hyperparameters.get("output_dir", "vae_images")
+    output_dir_orig = cfg.hyperparameters.get("output_dir_orig", "vae_images_orig")
+    output_dir_reco = cfg.hyperparameters.get("output_dir_reco", "vae_images_reco")
 
     ct_folder = cfg.hyperparameters.get("ct_folder", "Rigshospitalet/data/CT")
     pet_folder = cfg.hyperparameters.get("pet_folder", "Rigshospitalet/data/PET")
@@ -98,7 +100,8 @@ def main(cfg: DictConfig):
             boson_params_to_use,
             cfg.hyperparameters.lr,
             latent_features,
-            output_dir
+            output_dir_orig,
+            output_dir_reco
         )
         wandb_project = "vae_sparrow"
         trainer = Trainer(

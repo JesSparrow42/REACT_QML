@@ -4,26 +4,27 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-def save_images(original, reconstructed, output_dir, epoch, expected_shape=None):
+def save_images(original, reconstructed, output_dir_orig, output_dir_reco, epoch, expected_shape=None):
     """Save original and reconstructed images.
     If expected_shape is provided and an image is flat (1D), it will be reshaped.
     Otherwise, the image is saved as-is.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(output_dir_orig, exist_ok=True)
+    os.makedirs(output_dir_reco, exist_ok=True)
     for i, img in enumerate(original):
         if expected_shape is not None and img.ndim == 1:
             try:
                 img = img.reshape(expected_shape)
             except Exception as e:
                 print(f"Error reshaping original image {i}: {e}")
-        plt.imsave(os.path.join(output_dir, f"epoch_{epoch}_original_{i}.png"), img, cmap="gray")
+        plt.imsave(os.path.join(output_dir_orig, f"epoch_{epoch}_original_{i}.png"), img, cmap="gray")
     for i, img in enumerate(reconstructed):
         if expected_shape is not None and img.ndim == 1:
             try:
                 img = img.reshape(expected_shape)
             except Exception as e:
                 print(f"Error reshaping reconstructed image {i}: {e}")
-        plt.imsave(os.path.join(output_dir, f"epoch_{epoch}_reconstructed_{i}.png"), img, cmap="gray")
+        plt.imsave(os.path.join(output_dir_reco, f"epoch_{epoch}_reconstructed_{i}.png"), img, cmap="gray")
 
 
 def save_weights(model, optimizer, epoch, save_path, loss):

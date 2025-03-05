@@ -1,15 +1,16 @@
 hyperparameters:
   seed: 42
   batch_size: 32
-  n_epochs: 100
+  n_epochs: 10
   lr: 5e-4
   gen_lr: 0.0004
   disc_lr: 2e-6
   latent_features: 8
-  output_dir: "results/diffusion_images" # vae, transformer or gan
-  model_type: "diffusion" # "vae", "transformer" or "gan"
+  output_dir_orig: "results/vae_images_orig" # vae, transformer or gan
+  output_dir_reco: "results/vae_images_reco" # vae, transformer or gan
+  model_type: "vae" # "vae", "transformer" or "gan"
   gan_output_size: 512
-  boson_sampler_params: "false"
+  boson_sampler_params: "true"
   ct_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805"
   pet_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000"
   pretrain_gen_epochs: 200
