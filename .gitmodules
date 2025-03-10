@@ -1,0 +1,3 @@
+[submodule "nonlinear-photonic-sampler"]
+	path = nonlinear-photonic-sampler
+	url = git@github.com:SparrowQuantum/nonlinear-photonic-sampler.git

@@ -6,6 +6,7 @@ import pickle
 import datetime
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.transforms import ToPILImage

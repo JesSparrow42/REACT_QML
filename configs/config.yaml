@@ -1,18 +1,27 @@
 hyperparameters:
+  ### MODEL PARAMETERS ###
   seed: 42
   batch_size: 32
-  n_epochs: 100
+  n_epochs: 10
   lr: 5e-4
   gen_lr: 0.0004
   disc_lr: 2e-6
   latent_features: 8
-  output_dir: "results/diffusion_images" # vae, transformer or gan
+  discrimininator_iter: 0
+  output_dir: "results/test"
+  output_dir_orig: "results/test_orig" # vae, transformer or gan
+  output_dir_reco: "results/test_reco" # vae, transformer or gan
   model_type: "diffusion" # "vae", "transformer" or "gan"
   gan_output_size: 512
-  boson_sampler_params: "false"
-  ct_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805"
-  pet_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000"
+  boson_sampler_params: "true"
   pretrain_gen_epochs: 200
   pretrain_disc_epochs: 50
   #gen_checkpoint_path: "model_checkpoints/generator_epoch_3000.pt"
   #disc_checkpoint_path: "model_checkpoints/discriminator_epoch_3000.pt"
+  ### DATA PARAMETERS ###
+  datamodule: "medical"   # Set to "qm9" to use QM9DataModule; use "medical" for MedicalDataModule.
+  qm9_db_path: "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/data/qm9.db"
+  qm9_split_path: "/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/data/randomsplits_110k_10k_rest.json"
+  qm9_cache_dir: "cache"
+  ct_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/2.000000-CT IMAGES-25805"
+  pet_folder: "Rigshospitalet/data/NAC-PET & CT/ACRIN-NSCLC-FDG-PET/ACRIN-NSCLC-FDG-PET-016/12-24-1959-NA-NA-02783/1.000000-PET NAC-24000"

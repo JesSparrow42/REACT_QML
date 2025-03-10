@@ -3,6 +3,9 @@ simple_repo/
 advance_repo/
 results/
 wandb/
+data/
+lightning_logs/
+cache/
 *.bkp
 
 # Ignore Python cache files

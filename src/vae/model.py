@@ -8,7 +8,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
-from vae.utils import save_images, dice_loss  # and any other helper functions as needed
+from vae.utils import save_images, dice_loss, plot_molecule  # and any other helper functions as needed
 
 ### To do
 # Parameter shift rule?
@@ -22,11 +22,13 @@ class BosonPrior(Distribution):
     arg_constraints = {}
     has_rsample = True
 
-    def __init__(self, boson_sampler, batch_size, latent_features, validate_args=None):
+    def __init__(self, boson_sampler, batch_size, latent_features, discriminator_iter=0, validate_args=None):
         super().__init__(validate_args=validate_args)
         self.boson_sampler = boson_sampler
         self.batch_size = batch_size
         self.latent_features = latent_features
+        self.discriminator_iter = discriminator_iter
+
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
         elif torch.backends.mps.is_available():
@@ -35,10 +37,9 @@ class BosonPrior(Distribution):
             self.device = torch.device('cpu')
 
     def rsample(self, sample_shape=torch.Size()):
-        # Note: DISCRIMINATOR_ITER should be defined externally or passed in
-        total_samples = (1 + DISCRIMINATOR_ITER) * self.batch_size
+        total_samples = (1 + self.discriminator_iter) * self.batch_size
         latent = self.boson_sampler.generate(total_samples).to(self.device)
-        latent = torch.chunk(latent, 1 + DISCRIMINATOR_ITER, dim=0)
+        latent = torch.chunk(latent, 1 + self.discriminator_iter, dim=0)
         return latent
 
     def log_prob(self, z):
@@ -180,11 +181,12 @@ class VariationalInference(nn.Module):
         return loss, diagnostics, outputs
 
 class VAE_Lightning(pl.LightningModule):
-    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
+    def __init__(self, boson_params_to_use, lr, latent_features, output_dir_orig, output_dir_reco):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
-        self.output_dir = output_dir
+        self.output_dir_orig = output_dir_orig
+        self.output_dir_reco = output_dir_reco
         self.latent_features = latent_features
 
         self.vae = VariationalAutoencoder(
@@ -230,7 +232,7 @@ class VAE_Lightning(pl.LightningModule):
                 original_ct = ct_image_target.cpu().numpy()
                 # Use the VAE's input shape as the expected shape (e.g., (128,128))
                 from vae.utils import save_images
-                save_images(original_ct, reconstructed_ct, self.output_dir, self.current_epoch,
+                save_images(original_ct, reconstructed_ct, self.output_dir_orig, self.output_dir_reco, self.current_epoch,
                             expected_shape=tuple(self.vae.input_shape))
         return loss
 
@@ -270,6 +272,7 @@ class GraphVAE(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, max_nodes * self.input_dim)
         )
+
     def encode(self, node_features, node_positions, mask):
         x = torch.cat([node_features, node_positions], dim=-1)  # (B, N, 4)
         B, N, _ = x.size()
@@ -284,15 +287,18 @@ class GraphVAE(nn.Module):
         mu = self.fc_mu(pooled)
         logvar = self.fc_logvar(pooled)
         return mu, logvar
+
     def reparameterize(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mu + eps * std
+
     def decode(self, z):
         B = z.size(0)
         out = self.decoder_fc(z)
         out = out.view(B, self.max_nodes, self.input_dim)
         return out
+
     def forward(self, node_features, node_positions, mask):
         mu, logvar = self.encode(node_features, node_positions, mask)
         z = self.reparameterize(mu, logvar)
@@ -300,14 +306,25 @@ class GraphVAE(nn.Module):
         return recon, mu, logvar
 
 class GraphVAE_Lightning(pl.LightningModule):
-    def __init__(self, latent_features: int, max_nodes: int, lr: float = 1e-3):
+
+    def __init__(self, latent_features: int, max_nodes: int, lr: float = 1e-3,
+                 output_dir_orig: str = "orig_molecules", output_dir_reco: str = "reco_molecules"):
         super().__init__()
         self.save_hyperparameters()
         self.model = GraphVAE(latent_features=latent_features, max_nodes=max_nodes)
         self.lr = lr
+
+        self.output_dir_orig = output_dir_orig
+        self.output_dir_reco = output_dir_reco
+
+        os.makedirs(self.output_dir_orig, exist_ok=True)
+        os.makedirs(self.output_dir_reco, exist_ok=True)
+
     def forward(self, batch):
         recon, mu, logvar = self.model(batch["node_features"], batch["node_positions"], batch["mask"])
         return recon, mu, logvar
+
+
     def compute_loss(self, recon, batch, mu, logvar):
         recon_feat = recon[..., :1]
         recon_pos = recon[..., 1:]
@@ -317,19 +334,54 @@ class GraphVAE_Lightning(pl.LightningModule):
         recon_loss = (loss_feat + loss_pos) / mask.sum()
         kl_loss = -0.5 * torch.mean(torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1))
         return recon_loss + kl_loss, recon_loss, kl_loss
+
     def training_step(self, batch, batch_idx):
         recon, mu, logvar = self.forward(batch)
         loss, recon_loss, kl_loss = self.compute_loss(recon, batch, mu, logvar)
         self.log("train_loss", loss, prog_bar=True)
         return loss
+
+    def compute_mae(self, recon, batch):
+        recon_feat = recon[..., :1]
+        recon_pos = recon[..., 1:]
+        mask = batch["mask"].unsqueeze(-1)
+        mae_feat = torch.abs(recon_feat * mask - batch["node_features"] * mask).sum() / mask.sum()
+        mae_pos = torch.abs(recon_pos * mask - batch["node_positions"] * mask).sum() / mask.sum()
+        return mae_feat + mae_pos
+
     def validation_step(self, batch, batch_idx):
         recon, mu, logvar = self.forward(batch)
         loss, _, _ = self.compute_loss(recon, batch, mu, logvar)
+        mae = self.compute_mae(recon, batch)
         self.log("val_loss", loss, prog_bar=True)
+        self.log("val_mae", mae, prog_bar=True)
+
+        if batch_idx == 0:
+            print(f"Validation step at epoch {self.current_epoch}")
+            with torch.no_grad():
+                mask = batch["mask"][0].bool()
+                orig_positions = batch["node_positions"][0][mask].detach().cpu().numpy()
+                orig_features = batch["node_features"][0][mask].detach().cpu().numpy()
+
+                recon_positions = recon[0, mask, 1:].detach().cpu().numpy()
+                recon_features = recon[0, mask, :1].detach().cpu().numpy()
+
+                orig_filepath = os.path.join(self.output_dir_orig, f"original_molecule_epoch_{self.current_epoch}.png")
+                reco_filepath = os.path.join(self.output_dir_reco, f"generated_molecule_epoch_{self.current_epoch}.png")
+
+                try:
+                    plot_molecule(orig_positions, orig_features, orig_filepath)
+                    plot_molecule(recon_positions, recon_features, reco_filepath)
+
+                    print(f"Saved original molecule to: {orig_filepath}")
+                    print(f"Saved reconstructed molecule to: {reco_filepath}")
+                except Exception as e:
+                    print(f"Error saving molecule plot: {e}")
+
         return loss
+
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
-
 
 # -----------------------------
 # GAN Components
@@ -745,7 +797,8 @@ class UNetLightning(pl.LightningModule):
             save_images(
                 target_images,             # ground truth
                 generated_ct,              # predicted
-                self.output_dir,
+                self.output_dir_orig,
+                self.output_dir_reco,
                 self.current_epoch,
                 expected_shape=tuple(pred_ct.shape[-2:])
             )
@@ -758,7 +811,7 @@ class UNetLightning(pl.LightningModule):
 
 # --- Diffusion Lightning Module ---
 class DiffusionLightning(pl.LightningModule):
-    def __init__(self, boson_params_to_use, lr, latent_features, output_dir):
+    def __init__(self, boson_params_to_use, lr, latent_features, output_dir_orig, output_dir_reco, discriminator_iter=0):
         """
         Required parameters:
           - boson_params_to_use: dictionary for boson sampler (or None for Gaussian)
@@ -770,7 +823,9 @@ class DiffusionLightning(pl.LightningModule):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
-        self.output_dir = output_dir
+        self.output_dir_orig = output_dir_orig
+        self.output_dir_reco = output_dir_reco
+        self.discriminator_iter = discriminator_iter
 
         # Set up boson sampler if provided.
         self.boson_sampler = None
@@ -832,7 +887,11 @@ class DiffusionLightning(pl.LightningModule):
           sqrt_alpha_bar, sqrt_one_minus_alpha_bar: scaling factors.
         """
         dist = self.prior(batch_size=ct_clean.size(0))
-        noise = dist.rsample()  # shape: (B, latent_features)
+        noise = dist.rsample()  # This returns a tuple when discriminator_iter > 0
+        # Extract the first tensor from the tuple if necessary
+        if isinstance(noise, (tuple, list)):
+            noise = noise[0]
+
         if self.noise_projector is not None:
             noise = self.noise_projector(noise)
         noise = noise.view(ct_clean.size(0), ct_clean.size(1), self.image_size[0], self.image_size[1])
@@ -840,6 +899,8 @@ class DiffusionLightning(pl.LightningModule):
         sqrt_one_minus_alpha_bar = (1 - self.alpha_bars[t]).sqrt().view(-1, 1, 1, 1)
         x_t = sqrt_alpha_bar * ct_clean + sqrt_one_minus_alpha_bar * noise
         return x_t, noise, sqrt_alpha_bar, sqrt_one_minus_alpha_bar
+
+
 
     def forward(self, pet_image, ct_clean, t):
         """
@@ -891,7 +952,7 @@ class DiffusionLightning(pl.LightningModule):
                 x0_pred_np = x0_pred_np.squeeze(1)
             if ct_clean_np.shape[1] == 1:
                 ct_clean_np = ct_clean_np.squeeze(1)
-            save_images(ct_clean_np, x0_pred_np, self.output_dir, self.current_epoch,
+            save_images(ct_clean_np, x0_pred_np, self.output_dir_orig, self.output_dir_reco, self.current_epoch,
                         expected_shape=tuple(x_t.shape[-2:]))
         return loss
 
