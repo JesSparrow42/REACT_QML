@@ -306,12 +306,14 @@ class GraphVAE(nn.Module):
         return recon, mu, logvar
 
 class GraphVAE_Lightning(pl.LightningModule):
+
     def __init__(self, latent_features: int, max_nodes: int, lr: float = 1e-3,
                  output_dir_orig: str = "orig_molecules", output_dir_reco: str = "reco_molecules"):
         super().__init__()
         self.save_hyperparameters()
         self.model = GraphVAE(latent_features=latent_features, max_nodes=max_nodes)
         self.lr = lr
+
         self.output_dir_orig = output_dir_orig
         self.output_dir_reco = output_dir_reco
 
@@ -321,6 +323,7 @@ class GraphVAE_Lightning(pl.LightningModule):
     def forward(self, batch):
         recon, mu, logvar = self.model(batch["node_features"], batch["node_positions"], batch["mask"])
         return recon, mu, logvar
+
 
     def compute_loss(self, recon, batch, mu, logvar):
         recon_feat = recon[..., :1]
