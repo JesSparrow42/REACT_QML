@@ -15,3 +15,5 @@ To change between models in `configs/config.yaml` change the model_type between 
 ### Variational Autoencoder(VAE)
 
 ### Transformers
+
+### Diffusion Models

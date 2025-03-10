@@ -331,8 +331,8 @@ class GraphVAE_Lightning(pl.LightningModule):
 
 def main():
     # Hard-coded parameters and paths
-    db_path = r"C:\Users\Jonat\Desktop\Datasets\qm9.db"
-    split_path = r"C:\Users\Jonat\Desktop\Datasets\randomsplits_110k_10k_rest.json"
+    db_path = r"/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/data/qm9.db"
+    split_path = r"/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/data/randomsplits_110k_10k_rest.json"
     batch_size = 32
     latent_features = 16
     lr = 1e-3

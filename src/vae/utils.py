@@ -93,3 +93,34 @@ def generator_loss(disc_output, real_ct, generated_ct, bone_mask=None):
         L_MAE = F.l1_loss(generated_ct, real_ct)
         L_dice = dice_loss(generated_ct * bone_mask, real_ct * bone_mask)
     return L_disc + 150 * L_MAE + L_dice
+
+def plot_molecule(node_positions, node_features, save_path):
+    """
+    Plot a molecule given its node positions and features, and save the plot.
+    """
+    try:
+        plt.figure()
+        # node_positions and node_features are already numpy arrays.
+        # node_positions.shape -> (num_atoms, 3) or (num_atoms, 2)
+        # node_features.shape -> (num_atoms,) or (num_atoms, 1)
+
+        x = node_positions[:, 0]
+        y = node_positions[:, 1]
+
+        # Convert node_features to 1D if it has shape (num_atoms, 1)
+        if node_features.ndim == 2:
+            node_features = node_features.squeeze(axis=-1)
+
+        # Simple 2D scatter. You can color-code by atomic number or any feature.
+        sc = plt.scatter(x, y, c=node_features, cmap='viridis', s=100, edgecolors='k')
+        plt.colorbar(sc, label='Node feature')
+
+        plt.title("Molecule")
+        plt.xlabel("X")
+        plt.ylabel("Y")
+
+        plt.savefig(save_path)
+        plt.close()
+        print(f"Molecule successfully saved to {save_path}")
+    except Exception as e:
+        print(f"Error saving molecule plot: {e}")
