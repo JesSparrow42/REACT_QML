@@ -4,6 +4,69 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
+class BosonPrior(Distribution):
+    arg_constraints = {}
+    has_rsample = True
+
+    def __init__(self, boson_sampler, batch_size, latent_features, discriminator_iter=0, validate_args=None):
+        super().__init__(validate_args=validate_args)
+        self.boson_sampler = boson_sampler
+        self.batch_size = batch_size
+        self.latent_features = latent_features
+        self.discriminator_iter = discriminator_iter
+
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        else:
+            self.device = torch.device('cpu')
+
+    def rsample(self, sample_shape=torch.Size()):
+        total_samples = (1 + self.discriminator_iter) * self.batch_size
+        latent = self.boson_sampler.generate(total_samples).to(self.device)
+        latent = torch.chunk(latent, 1 + self.discriminator_iter, dim=0)
+        return latent
+
+    def log_prob(self, z):
+        mean = torch.zeros_like(z)
+        std = torch.ones_like(z)
+        log_scale = torch.log(std)
+        log_prob = -0.5 * (
+            ((z - mean) ** 2) / (std ** 2)
+            + 2 * log_scale
+            + torch.log(torch.tensor(2 * torch.pi, device=z.device))
+        )
+        return log_prob.sum(dim=-1)
+
+class ReparameterizedDiagonalGaussian(Distribution):
+    arg_constraints = {}
+    has_rsample = True
+
+    def __init__(self, mu: torch.Tensor, log_sigma: torch.Tensor, validate_args=None):
+        super().__init__(validate_args=validate_args)
+        self.mu = mu
+        self.sigma = log_sigma.exp()
+
+    def sample_epsilon(self) -> torch.Tensor:
+        return torch.empty_like(self.mu).normal_()
+
+    def sample(self) -> torch.Tensor:
+        with torch.no_grad():
+            return self.rsample()
+
+    def rsample(self) -> torch.Tensor:
+        epsilon = self.sample_epsilon()
+        return self.mu + self.sigma * epsilon
+
+    def log_prob(self, z: torch.Tensor) -> torch.Tensor:
+        log_scale = torch.log(self.sigma)
+        return -0.5 * (
+            ((z - self.mu) ** 2) / (self.sigma ** 2)
+            + 2 * log_scale
+            + torch.log(torch.tensor(2 * torch.pi, device=z.device))
+        )
+
 def save_images(original, reconstructed, output_dir_orig, output_dir_reco, epoch, expected_shape=None):
     """Save original and reconstructed images.
     If expected_shape is provided and an image is flat (1D), it will be reshaped.
