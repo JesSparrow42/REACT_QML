@@ -232,8 +232,7 @@ class VAE_Lightning(pl.LightningModule):
             with torch.no_grad():
                 reconstructed_ct = outputs["px"].probs.cpu().numpy()
                 original_ct = ct_image_target.cpu().numpy()
-                # Use the VAE's input shape as the expected shape (e.g., (128,128))
-                from vae.utils import save_images
+                # Use the input shape as the expected shape (e.g., (128,128))
                 save_images(original_ct, reconstructed_ct, self.output_dir_orig, self.output_dir_reco, self.current_epoch,
                             expected_shape=tuple(self.vae.input_shape))
         return loss
@@ -848,7 +847,6 @@ class UNetLightning(pl.LightningModule):
             if target_images.shape[1] == 1:
                 target_images = target_images.squeeze(1)
 
-            from vae.utils import save_images
             save_images(
                 target_images,             # ground truth
                 generated_ct,              # predicted
