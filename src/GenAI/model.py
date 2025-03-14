@@ -8,7 +8,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
-from GenAI.utils import save_images, dice_loss, plot_molecule  # and any other helper functions as needed
+from utils import save_images, dice_loss, plot_molecule  # and any other helper functions as needed
 
 ### To do
 # Parameter shift rule?
