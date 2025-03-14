@@ -1013,7 +1013,7 @@ class DiffusionLightning(pl.LightningModule):
                         expected_shape=tuple(x_t.shape[-2:]))
         return loss
 
-        def on_validation_epoch_end(self):
+    def on_validation_epoch_end(self):
         if self._val_outputs:
             avg_loss = torch.stack(self._val_outputs).mean().item()
             self._val_outputs.clear()
