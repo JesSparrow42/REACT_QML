@@ -11,9 +11,9 @@ hyperparameters:
   output_dir: "results/test"
   output_dir_orig: "results/test_orig" # vae, transformer or gan
   output_dir_reco: "results/test_reco" # vae, transformer or gan
-  model_type: "diffusion" # "vae", "transformer" or "gan"
+  model_type: "vae" # "vae", "transformer" or "gan"
   gan_output_size: 512
-  boson_sampler_params: "true"
+  boson_sampler_params: "false"
   pretrain_gen_epochs: 200
   pretrain_disc_epochs: 50
   #gen_checkpoint_path: "model_checkpoints/generator_epoch_3000.pt"
