@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 from torch import nn
 import torch.nn.functional as F
+from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
 from utils import BosonPrior, ReparameterizedDiagonalGaussian, save_images, dice_loss, plot_molecule  # and any other helper functions as needed
 from models.vae import VariationalAutoencoder, VariationalInference
@@ -567,7 +568,7 @@ class DiffusionLightning(pl.LightningModule):
         self.loss_fn = nn.MSELoss()
         self._val_outputs = []
 
-    def prior(self, batch_size: int) -> bution:
+    def prior(self, batch_size: int) -> Distribution:
         if self.boson_sampler is not None:
             return BosonPrior(boson_sampler=self.boson_sampler,
                               batch_size=batch_size,
