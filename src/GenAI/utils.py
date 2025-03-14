@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from torch.distributions import Distribution
 
 class BosonPrior(Distribution):
     arg_constraints = {}
