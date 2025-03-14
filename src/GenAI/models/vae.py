@@ -1,3 +1,11 @@
+import os
+import torch
+import numpy as np
+import pytorch_lightning as pl
+import matplotlib.pyplot as plt
+from torch import nn
+import torch.nn.functional as F
+
 class VariationalAutoencoder(nn.Module):
     def __init__(self, input_shape: torch.Size, latent_features: int, boson_sampler_params: dict = None):
         super().__init__()
