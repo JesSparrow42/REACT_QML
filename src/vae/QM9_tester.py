@@ -12,7 +12,9 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import TQDMProgressBar
 
 # Assume you have a MedicalDataModule defined in your project
+
 from data import MedicalDataModule, QM9DataModule, AtomsData
+
 from model import GAN_Lightning, VAE_Lightning, DiffusionLightning, UNetLightning, GraphVAE_Lightning
 #from transformer import Transformer_Lightning
 from utils import load_separate_checkpoints
@@ -21,6 +23,7 @@ def main():
     # Hard-coded parameters and paths
     db_path = r"/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/data/qm9.db"
     split_path = r"/mnt/c/Users/JonatanEmilSvendsen/SparrowQML/data/randomsplits_110k_10k_rest.json"
+
     batch_size = 32
     latent_features = 16
     lr = 1e-3
@@ -38,6 +41,7 @@ def main():
     data_module.global_max = global_max
 
     # Instantiate the Lightning model with the global max_nodes
+
     # Here we add output directories for original and reconstructed molecule images.
     model = GraphVAE_Lightning(
         latent_features=latent_features,
@@ -46,6 +50,7 @@ def main():
         output_dir_orig="results/orig_molecules",
         output_dir_reco="results/reco_molecules"
     )
+
 
     # Set up a progress bar callback (optional)
     progress_bar = TQDMProgressBar(refresh_rate=20)
