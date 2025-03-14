@@ -265,7 +265,7 @@ class VAE_Lightning(pl.LightningModule):
 
             real_images = load_images_for_epoch(self.output_dir_orig, self.current_epoch, num_images=32)
             fake_images = load_images_for_epoch(self.output_dir_reco, self.current_epoch, num_images=32)
-            
+
             fid_metric = FrechetInceptionDistance(feature=64)
             fid_metric.update(real_images, real=True)
             fid_metric.update(fake_images, real=False)
