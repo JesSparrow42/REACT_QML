@@ -9,6 +9,11 @@ import torch.nn.functional as F
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
 from utils import BosonPrior, ReparameterizedDiagonalGaussian, save_images, dice_loss, plot_molecule  # and any other helper functions as needed
+from models.vae
+from models.gan
+from models.unet
+from models.graphvae
+
 
 ### To do
 # Parameter shift rule?
