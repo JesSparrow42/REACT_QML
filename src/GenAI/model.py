@@ -6,14 +6,12 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 from torch import nn
 import torch.nn.functional as F
-from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
 from utils import BosonPrior, ReparameterizedDiagonalGaussian, save_images, dice_loss, plot_molecule  # and any other helper functions as needed
-from models.vae
-from models.gan
-from models.unet
-from models.graphvae
-
+from models.vae import VariationalAutoencoder, VariationalInference
+from models.gan import Generator, Discriminator
+from models.unet import UNetGenerator
+from models.graphvae import GraphVAE
 
 ### To do
 # Parameter shift rule?
@@ -135,7 +133,7 @@ class VAE_Lightning(pl.LightningModule):
 
 
 ###############################
-# Graph VAE Model and Lightning Module
+# Graph VAE Lightning Module
 ###############################
 
 class GraphVAE_Lightning(pl.LightningModule):
@@ -216,6 +214,9 @@ class GraphVAE_Lightning(pl.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
+###############################
+# GAN Lightning Module
+###############################
 
 class GAN_Lightning(pl.LightningModule):
     def __init__(self, boson_sampler_params, gen_lr, disc_lr, latent_dim, output_size=64, output_dir="gan_images",
@@ -439,6 +440,9 @@ class GAN_Lightning(pl.LightningModule):
         gen_optimizer = torch.optim.Adam(self.generator.parameters(), lr=self.gen_lr)
         return [disc_optimizer, gen_optimizer]
 
+###################################################
+# Unet Lightning module
+###################################################
 
 class UNetLightning(pl.LightningModule):
     """
@@ -500,7 +504,10 @@ class UNetLightning(pl.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
 
 
+##########################################
 # --- Diffusion Lightning Module ---
+##########################################
+
 class DiffusionLightning(pl.LightningModule):
     def __init__(self, boson_params_to_use, lr, latent_features, output_dir_orig, output_dir_reco, discriminator_iter=0):
         """
@@ -560,7 +567,7 @@ class DiffusionLightning(pl.LightningModule):
         self.loss_fn = nn.MSELoss()
         self._val_outputs = []
 
-    def prior(self, batch_size: int) -> Distribution:
+    def prior(self, batch_size: int) -> bution:
         if self.boson_sampler is not None:
             return BosonPrior(boson_sampler=self.boson_sampler,
                               batch_size=batch_size,
@@ -591,8 +598,6 @@ class DiffusionLightning(pl.LightningModule):
         sqrt_one_minus_alpha_bar = (1 - self.alpha_bars[t]).sqrt().view(-1, 1, 1, 1)
         x_t = sqrt_alpha_bar * ct_clean + sqrt_one_minus_alpha_bar * noise
         return x_t, noise, sqrt_alpha_bar, sqrt_one_minus_alpha_bar
-
-
 
     def forward(self, pet_image, ct_clean, t):
         """
