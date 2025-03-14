@@ -922,6 +922,7 @@ class DiffusionLightning(pl.LightningModule):
             self.noise_projector = None
 
         self.loss_fn = nn.MSELoss()
+        self._val_outputs = []
 
     def prior(self, batch_size: int) -> Distribution:
         if self.boson_sampler is not None:
@@ -996,6 +997,7 @@ class DiffusionLightning(pl.LightningModule):
         noise_pred = self.unet(cond_input)
         loss = self.loss_fn(noise_pred, noise)
         self.log("val_loss", loss, prog_bar=True)
+        self._val_outputs.append(loss.detach())
 
         # Reconstruct the CT image from predicted noise:
         x0_pred = (x_t - sqrt_one_minus_alpha_bar * noise_pred) / sqrt_alpha_bar
@@ -1010,6 +1012,56 @@ class DiffusionLightning(pl.LightningModule):
             save_images(ct_clean_np, x0_pred_np, self.output_dir_orig, self.output_dir_reco, self.current_epoch,
                         expected_shape=tuple(x_t.shape[-2:]))
         return loss
+
+        def on_validation_epoch_end(self):
+        if self._val_outputs:
+            avg_loss = torch.stack(self._val_outputs).mean().item()
+            self._val_outputs.clear()
+        else:
+            avg_loss = 0.0
+        
+        fid_score = self.compute_fid()
+        self.log("FID", fid_score, prog_bar=True)
+        self.log("avg_val_loss", avg_loss, prog_bar=True)
+
+        metrics = {
+            "epoch": self.current_epoch,
+            "avg_val_loss": avg_loss,
+            "FID": fid_score,
+            "lr": self.hparams.lr
+        }
+        self.write_metrics_to_csv(metrics)
+
+    def compute_fid(self):
+        try:
+            from evaluate import load_images_for_epoch
+            from torchmetrics.image.fid import FrechetInceptionDistance
+
+            real_images = load_images_for_epoch(self.output_dir_orig, self.current_epoch, num_images=32)
+            fake_images = load_images_for_epoch(self.output_dir_reco, self.current_epoch, num_images=32)
+            fid_metric = FrechetInceptionDistance(feature=64)
+            fid_metric.update(real_images, real=True)
+            fid_metric.update(fake_images, real=False)
+            fid_score = fid_metric.compute()
+            return fid_score.item()
+        except Exception as e:
+            print(f"Error computing FID: {e}")
+            return 0.0
+
+    def write_metrics_to_csv(self, metrics: dict):
+        import csv, os
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y%m%d")
+        boson_used = "boson" if self.hparams.get("boson_params_to_use", None) is not None else "noboson"
+        filename = f"diffusion_{date_str}_lr{self.hparams.lr}_{boson_used}.csv"
+        os.makedirs("metrics", exist_ok=True)
+        filepath = os.path.join("metrics", filename)
+        file_exists = os.path.isfile(filepath)
+        with open(filepath, "a", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(metrics)
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
