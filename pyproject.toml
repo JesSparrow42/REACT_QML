@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vae"
+name = "sparrowqml"
 version = "0.0.1"
 description = "Generative quantum machine learning models"
 authors = [
