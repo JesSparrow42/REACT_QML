@@ -7,6 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Distribution
 from utils import BosonPrior, ReparameterizedDiagonalGaussian
+from ptseries.models import PTGenerator
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, input_shape: torch.Size, latent_features: int, boson_sampler_params: dict = None):
