@@ -9,13 +9,95 @@ from data_loader import create_data_loader
 from ptseries.models import PTGenerator
 from ptseries.algorithms.gans.utils import infiniteloop
 from utils import *
+import numpy as np
+from scipy.linalg import sqrtm
+from torchvision.models import inception_v3
+import matplotlib.pyplot as plt
 
-### TO-DO ###
-# 1. Save/initialise weights
-# 2. Hypertuning
-# 3. Look at wheter iterations are worthwhile to implement
-# 4. Loss goes negative. Check loss calculation & learning rate
-###
+def get_activations(images, model, batch_size=50, device='cpu'):
+    """Computes the activations of the pool3 layer for all images."""
+    model.eval()
+    activations = []
+    dataset = torch.utils.data.TensorDataset(images)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size)
+    with torch.no_grad():
+        for batch in dataloader:
+            batch = batch[0].to(device)
+            # Resize images to 299x299 if needed
+            if batch.shape[-1] != 299 or batch.shape[-2] != 299:
+                batch = F.interpolate(batch, size=(299, 299), mode='bilinear', align_corners=False)
+            pred = model(batch)
+            activations.append(pred.cpu().numpy())
+    activations = np.concatenate(activations, axis=0)
+    return activations
+
+
+def calculate_activation_statistics(activations):
+    """Calculates the mean and covariance of the activations."""
+    mu = np.mean(activations, axis=0)
+    sigma = np.cov(activations, rowvar=False)
+    return mu, sigma
+
+
+def calculate_fid(mu1, sigma1, mu2, sigma2, eps=1e-6):
+    """Calculates the Fréchet Inception Distance between two distributions."""
+    diff = mu1 - mu2
+    covmean, _ = sqrtm(sigma1.dot(sigma2), disp=False)
+    if not np.isfinite(covmean).all():
+        offset = np.eye(sigma1.shape[0]) * eps
+        covmean = sqrtm((sigma1 + offset).dot(sigma2 + offset))
+    if np.iscomplexobj(covmean):
+        covmean = covmean.real
+    fid = diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * np.trace(covmean)
+    return fid
+
+
+def get_inception_features(x, inception):
+    """Extracts features from the Inception v3 network up to the final pooling layer."""
+    x = inception.Conv2d_1a_3x3(x)
+    x = inception.Conv2d_2a_3x3(x)
+    x = inception.Conv2d_2b_3x3(x)
+    x = F.max_pool2d(x, kernel_size=3, stride=2)
+    x = inception.Conv2d_3b_1x1(x)
+    x = inception.Conv2d_4a_3x3(x)
+    x = F.max_pool2d(x, kernel_size=3, stride=2)
+    x = inception.Mixed_5b(x)
+    x = inception.Mixed_5c(x)
+    x = inception.Mixed_5d(x)
+    x = inception.Mixed_6a(x)
+    x = inception.Mixed_6b(x)
+    x = inception.Mixed_6c(x)
+    x = inception.Mixed_6d(x)
+    x = inception.Mixed_6e(x)
+    x = F.adaptive_avg_pool2d(x, output_size=(1, 1))
+    x = torch.flatten(x, 1)
+    return x
+
+
+def compute_fid(real_images, fake_images, batch_size=50, device='cpu'):
+    """Computes the FID score between real and fake images."""
+    inception = inception_v3(pretrained=True, transform_input=False).to(device)
+    # Override the forward method to return features from the pool3 layer
+    inception.forward = lambda x: get_inception_features(x, inception)
+    
+    # If images are grayscale, repeat channels to have 3 channels
+    if real_images.shape[1] == 1:
+        real_images = real_images.repeat(1, 3, 1, 1)
+    if fake_images.shape[1] == 1:
+        fake_images = fake_images.repeat(1, 3, 1, 1)
+    
+    # Scale images from [0, 1] to [-1, 1] as expected by Inception
+    real_images = real_images * 2 - 1
+    fake_images = fake_images * 2 - 1
+    
+    activations_real = get_activations(real_images, inception, batch_size, device)
+    activations_fake = get_activations(fake_images, inception, batch_size, device)
+    
+    mu_real, sigma_real = calculate_activation_statistics(activations_real)
+    mu_fake, sigma_fake = calculate_activation_statistics(activations_fake)
+    
+    fid_value = calculate_fid(mu_real, sigma_real, mu_fake, sigma_fake)
+    return fid_value
 
 def main():
     ### HYPERPARAMETERS # Only optimize boson sampler parameters
@@ -145,6 +227,8 @@ def main():
 
     gen_losses = []
     disc_losses = []
+    fid_scores = []
+    fid_epochs = []
 
     # Main training loop follows the same structure as pre-training but with mixed precision applied
     print("Starting main training")
@@ -202,7 +286,36 @@ def main():
                 discriminator_save_path = os.path.join(model_save_folder, f'discriminator_epoch_{epoch + 1}.pt')
                 save_weights(generator, gen_optimizer, epoch + 1, generator_save_path, gen_loss.item())
                 save_weights(discriminator, disc_optimizer, epoch + 1, discriminator_save_path, disc_loss.item())
-        plot_losses(gen_losses, disc_losses, phase="Main Training")
-        print(f'Iteration, {n}, Gen Loss: {gen_loss.item()}, Disc Loss: {disc_loss.item()}')
+
+                with torch.no_grad():
+                    fake_ct = generator(latent[DISCRIMINATOR_ITER]).detach()
+                    fake_ct = (fake_ct - fake_ct.min()) / (fake_ct.max() - fake_ct.min())
+                    real_ct = F.interpolate(data_real, size=(64, 64), mode='nearest')
+                    real_ct = (real_ct - real_ct.min()) / (real_ct.max() - real_ct.min())
+                fid = compute_fid(real_ct, fake_ct, batch_size=10, device=device)
+                fid_scores.append(fid)
+                fid_epochs.append(epoch + 1)
+                print(f"Epoch {epoch+1}, FID score: {fid}")
+
+    # Compute FID score after training
+    print("Computing FID score...")
+    with torch.no_grad():
+        # Generate fake CT images using the generator
+        fake_ct = generator(latent[DISCRIMINATOR_ITER]).detach()
+        fake_ct = (fake_ct - fake_ct.min()) / (fake_ct.max() - fake_ct.min())
+        # Prepare real CT images by downscaling
+        real_ct = F.interpolate(data_real, size=(64, 64), mode='nearest')
+        real_ct = (real_ct - real_ct.min()) / (real_ct.max() - real_ct.min())
+    fid_score = compute_fid(real_ct, fake_ct, batch_size=10, device=device)
+    print("FID score:", fid_score)
+
+    # Plot FID score graph
+    plt.figure()
+    plt.plot(fid_epochs, fid_scores, marker='o')
+    plt.xlabel("Epoch")
+    plt.ylabel("FID Score")
+    plt.title("FID Score over Training Epochs")
+    plt.show()
+
 if __name__ == '__main__':
     main()
