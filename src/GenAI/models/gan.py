@@ -11,7 +11,7 @@ import torch.nn.functional as F
 # -----------------------------
 class Generator(nn.Module):
     """Modified U-Net without upstream"""
-    def __init__(self, latent_dim, output_size=32):
+    def __init__(self, latent_dim, output_size=64):
         super(Generator, self).__init__()
         self.latent_dim = latent_dim
         self.output_size = output_size
@@ -24,8 +24,7 @@ class Generator(nn.Module):
         self.dec1 = self.conv_block(512, 256) # 8 -> 16
         self.dec2 = self.conv_block(256, 128) # 16 -> 32
         self.dec3 = self.conv_block(128, 64) # 32 -> 64
-        self.dec4 = self.conv_block(64,32) # 64 -> 128
-        self.dec4 = nn.ConvTranspose2d(32, 1, kernel_size=4, stride=2, padding=1)
+        self.final = nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1)
 
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
@@ -39,7 +38,7 @@ class Generator(nn.Module):
         x = self.dec1(x)
         x = self.dec2(x)
         x = self.dec3(x)
-        x = self.dec4(x)
+        x = self.final(x)
         return torch.sigmoid(x)
 
 class Discriminator(nn.Module):
