@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.distributions import Distribution
 from utils import BosonPrior, ReparameterizedDiagonalGaussian
 from ptseries.models import PTGenerator
+from BosonSamplerWrapper import BosonLatentGenerator, BosonSamplerTorch
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, input_shape: torch.Size, latent_features: int, boson_sampler_params: dict = None):
@@ -39,7 +40,8 @@ class VariationalAutoencoder(nn.Module):
         self.boson_sampler_params = boson_sampler_params
         self.boson_sampler = None
         if boson_sampler_params is not None:
-            self.boson_sampler = PTGenerator(**boson_sampler_params)
+            #self.boson_sampler = PTGenerator(**boson_sampler_params)
+            self.boson_sampler = BosonLatentGenerator(latent_features, boson_sampler_params)
 
         self.register_buffer(
             'prior_params',
@@ -107,4 +109,3 @@ class VariationalInference(nn.Module):
             'kl': kl.detach()
         }
         return loss, diagnostics, outputs
-
