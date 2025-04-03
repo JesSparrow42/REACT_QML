@@ -170,6 +170,7 @@ def main(cfg: DictConfig):
             print("Using global_max =", global_max)
             data_module.global_max = global_max
         model = GraphVAE_Lightning(
+            boson_params_to_use,
             latent_features=latent_features,
             max_nodes=data_module.global_max,
             lr=cfg.hyperparameters.lr,
