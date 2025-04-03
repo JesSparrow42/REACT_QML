@@ -119,7 +119,7 @@ class VAE_Lightning(pl.LightningModule):
 
         date_str = datetime.now().strftime("%Y%m%d")
         boson_used = "boson" if self.hparams.boson_params_to_use is not None else "noboson"
-        filename = f"vae_{date_str}_lr{self.hparams.lr}_{boson_used}.csv"
+        filename = f"vae_{date_str}_lr{self.hparams.lr}_{boson_used}_v2.csv"
         os.makedirs("metrics", exist_ok=True)
         filepath = os.path.join("metrics", filename)
         file_exists = os.path.isfile(filepath)
@@ -139,11 +139,12 @@ class VAE_Lightning(pl.LightningModule):
 
 class GraphVAE_Lightning(pl.LightningModule):
 
-    def __init__(self, latent_features: int, max_nodes: int, lr: float = 1e-3,
+    def __init__(self, boson_params_to_use, latent_features: int, max_nodes: int, lr: float = 1e-3,
                  output_dir_orig: str = "orig_molecules", output_dir_reco: str = "reco_molecules"):
         super().__init__()
         self.save_hyperparameters()
-        self.model = GraphVAE(latent_features=latent_features, max_nodes=max_nodes)
+        self.model = GraphVAE(latent_features=latent_features, max_nodes=max_nodes,
+                              boson_sampler_params=self.hparams.boson_params_to_use)
         self.lr = lr
 
         self.output_dir_orig = output_dir_orig
@@ -151,6 +152,10 @@ class GraphVAE_Lightning(pl.LightningModule):
 
         os.makedirs(self.output_dir_orig, exist_ok=True)
         os.makedirs(self.output_dir_reco, exist_ok=True)
+
+        # Lists for storing validation metrics per batch.
+        self._val_losses = []
+        self._val_maes = []
 
     def forward(self, batch):
         recon, mu, logvar = self.model(batch["node_features"], batch["node_positions"], batch["mask"])
@@ -188,6 +193,10 @@ class GraphVAE_Lightning(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True)
         self.log("val_mae", mae, prog_bar=True)
 
+        # Store metrics for aggregation.
+        self._val_losses.append(loss.detach())
+        self._val_maes.append(mae.detach())
+
         if batch_idx == 0:
             print(f"Validation step at epoch {self.current_epoch}")
             with torch.no_grad():
@@ -212,6 +221,44 @@ class GraphVAE_Lightning(pl.LightningModule):
 
         return loss
 
+    def on_validation_epoch_end(self):
+        # Aggregate per-batch metrics to get averages.
+        avg_loss = torch.stack(self._val_losses).mean().item() if self._val_losses else 0.0
+        avg_mae = torch.stack(self._val_maes).mean().item() if self._val_maes else 0.0
+
+        self.log("avg_val_loss", avg_loss, prog_bar=True)
+        self.log("avg_val_mae", avg_mae, prog_bar=True)
+
+        # Clear stored metrics.
+        self._val_losses.clear()
+        self._val_maes.clear()
+
+        # Save aggregated metrics to CSV.
+        metrics = {
+            "epoch": self.current_epoch,
+            "avg_val_loss": avg_loss,
+            "avg_val_mae": avg_mae,
+            "lr": self.lr
+        }
+        self.write_metrics_to_csv(metrics)
+
+    def write_metrics_to_csv(self, metrics: dict):
+        import csv
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y%m%d")
+        boson_used = "boson" if (self.hparams.boson_params_to_use is not None and len(self.hparams.boson_params_to_use) > 0) else "noboson"
+        model_name = "graphvae"
+        filename = f"{model_name}_{date_str}_lr{self.hparams.lr}_{boson_used}.csv"
+        os.makedirs("metrics", exist_ok=True)
+        filepath = os.path.join("metrics", filename)
+        file_exists = os.path.isfile(filepath)
+        with open(filepath, "a", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(metrics)
+
+
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
@@ -228,6 +275,7 @@ class GAN_Lightning(pl.LightningModule):
         self.disc_lr = disc_lr
         self.latent_dim = latent_dim
         self.output_dir = output_dir
+        self._val_losses = []
 
         # Pretraining epochs (generator, then discriminator)
         self.pretrain_gen_epochs = pretrain_gen_epochs
@@ -413,7 +461,7 @@ class GAN_Lightning(pl.LightningModule):
         with torch.no_grad():
             generated_ct = self.generator(latent)
 
-        data_real_downscaled = F.interpolate(ct_images, size=(64, 64), mode='nearest')
+        data_real_downscaled = F.interpolate(ct_images, size=(128, 128), mode='bilinear', align_corners=False)
         data_real_downscaled = (data_real_downscaled - data_real_downscaled.min()) / (
             data_real_downscaled.max() - data_real_downscaled.min() + 1e-8)
         generated_ct = (generated_ct - generated_ct.min()) / (generated_ct.max() - generated_ct.min() + 1e-8)
@@ -434,12 +482,67 @@ class GAN_Lightning(pl.LightningModule):
             adversarial_loss = dice_loss(fake_output, torch.ones_like(fake_output))
             gen_loss = F.l1_loss(generated_ct, data_real_downscaled) + 0.2 * adversarial_loss
         self.log("val_gen_loss", gen_loss, prog_bar=True)
+        self._val_losses.append(gen_loss.detach())
+
         return {"val_gen_loss": gen_loss}
+
+    def compute_fid(self):
+        try:
+            from evaluate import load_images_for_epoch
+            from torchmetrics.image.fid import FrechetInceptionDistance
+            # Load images from the output directory (which contains the saved generated images)
+            real_images = load_images_for_epoch(self.output_dir, self.current_epoch, num_images=32)
+            fake_images = load_images_for_epoch(self.output_dir, self.current_epoch, num_images=32)
+            fid_metric = FrechetInceptionDistance(feature=64)
+            fid_metric.update(real_images, real=True)
+            fid_metric.update(fake_images, real=False)
+            fid_score = fid_metric.compute()
+            return fid_score.item()
+        except Exception as e:
+            print(f"Error computing FID: {e}")
+            return 0.0
+
+    def write_metrics_to_csv(self, metrics: dict):
+        import csv, os
+        from datetime import datetime
+        date_str = datetime.now().strftime("%Y%m%d")
+        boson_params = self.hparams.get("boson_sampler_params", None)
+        boson_used = "boson" if boson_params and isinstance(boson_params, dict) and len(boson_params) > 0 else "noboson"
+        model_name = "gan"
+        filename = f"{model_name}_{date_str}_lr{self.hparams.gen_lr}_{boson_used}.csv"
+        os.makedirs("metrics", exist_ok=True)
+        filepath = os.path.join("metrics", filename)
+        file_exists = os.path.isfile(filepath)
+        with open(filepath, "a", newline="") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=metrics.keys())
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(metrics)
+
+
+    def on_validation_epoch_end(self):
+        if self._val_losses:
+            avg_val_loss = torch.stack(self._val_losses).mean().item()
+            self._val_losses.clear()
+        else:
+            avg_val_loss = 0.0
+
+        fid_score = self.compute_fid()
+        self.log("FID", fid_score, prog_bar=True)
+
+        metrics = {
+            "epoch": self.current_epoch,
+            "avg_val_loss": avg_val_loss,
+            "FID": fid_score,
+            "lr": self.hparams.gen_lr  # using generator LR for naming
+        }
+        self.write_metrics_to_csv(metrics)
 
     def configure_optimizers(self):
         disc_optimizer = torch.optim.Adam(self.discriminator.parameters(), lr=self.disc_lr)
         gen_optimizer = torch.optim.Adam(self.generator.parameters(), lr=self.gen_lr)
         return [disc_optimizer, gen_optimizer]
+
 
 ###################################################
 # Unet Lightning module
@@ -602,7 +705,7 @@ class DiffusionLightning(pl.LightningModule):
 
     def forward(self, pet_image, ct_clean, t):
         """
-        For inference you can provide a PET image and a CT image (or noise schedule t) 
+        For inference you can provide a PET image and a CT image (or noise schedule t)
         to predict noise. In training, we add noise to the CT.
         """
         # Add noise to CT
@@ -661,7 +764,7 @@ class DiffusionLightning(pl.LightningModule):
             self._val_outputs.clear()
         else:
             avg_loss = 0.0
-        
+
         fid_score = self.compute_fid()
         self.log("FID", fid_score, prog_bar=True)
         self.log("avg_val_loss", avg_loss, prog_bar=True)
