@@ -5,9 +5,11 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 from torch import nn
 import torch.nn.functional as F
+from ptseries.models import PTGenerator  # Use PTGenerator instead of BosonLatentGenerator
+from BosonSamplerWrapper import BosonLatentGenerator
 
 class GraphVAE(nn.Module):
-    def __init__(self, latent_features: int, max_nodes: int, node_feature_dim: int = 1,
+    def __init__(self, latent_features: int, max_nodes: int, boson_sampler_params: dict = None, node_feature_dim: int = 1,
                  position_dim: int = 3, hidden_dim: int = 64):
         """
         A simple Graph VAE.
@@ -35,6 +37,16 @@ class GraphVAE(nn.Module):
             nn.Linear(hidden_dim, max_nodes * self.input_dim)
         )
 
+        # Boson sampler setup using PTGenerator
+        self.boson_sampler_params = boson_sampler_params
+        self.boson_sampler = None
+        if boson_sampler_params is not None:
+            self.boson_sampler = PTGenerator(**boson_sampler_params)
+            # self.boson_sampler = BosonLatentGenerator(latent_features, boson_sampler_params)
+
+        # Register a buffer for default prior parameters (like in your VAE)
+        self.register_buffer('prior_params', torch.zeros(1, 2 * latent_features))
+
     def encode(self, node_features, node_positions, mask):
         x = torch.cat([node_features, node_positions], dim=-1)  # (B, N, 4)
         B, N, _ = x.size()
@@ -60,6 +72,19 @@ class GraphVAE(nn.Module):
         out = self.decoder_fc(z)
         out = out.view(B, self.max_nodes, self.input_dim)
         return out
+
+    def prior(self, batch_size: int):
+        if self.boson_sampler is not None:
+            return BosonPrior(
+                boson_sampler=self.boson_sampler,
+                batch_size=batch_size,
+                latent_features=self.latent_features
+            )
+        else:
+            # Use a standard Gaussian prior
+            prior_params = self.prior_params.expand(batch_size, -1)
+            mu, log_sigma = prior_params.chunk(2, dim=-1)
+            return ReparameterizedDiagonalGaussian(mu, log_sigma)
 
     def forward(self, node_features, node_positions, mask):
         mu, logvar = self.encode(node_features, node_positions, mask)
