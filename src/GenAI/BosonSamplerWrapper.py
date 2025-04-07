@@ -41,26 +41,31 @@ def generate_unitary(m, bs_loss, bs_jitter, phase_noise_std=0.0, systematic_phas
         Q = np.array([Q[i, :] * np.sqrt(mode_loss[i]) for i in range(m)])
     return Q
 
-def compute_permanent(A):
-    """
-    Compute the permanent of a square matrix using a brute-force algorithm.
 
-    The permanent is computed as the sum over all permutations of the product of
-    matrix entries, similar to the determinant but without alternating signs.
+def compute_permanent(A: torch.Tensor) -> torch.Tensor:
+    r"""
+    Compute the permanent of a square matrix A (dtype should be torch.cfloat or torch.cdouble)
+    by brute-force enumeration of permutations.
 
     Parameters:
-        A (np.ndarray): A square matrix.
+        A (torch.Tensor): A 2D tensor (n x n) with a complex dtype.
 
     Returns:
-        complex: The permanent of matrix A.
+        torch.Tensor: A single complex scalar (the permanent).
     """
+    # Number of modes
     n = A.shape[0]
-    perm_sum = 0.0 + 0.0j
+
+    # We'll accumulate the permanent in perm_sum
+    perm_sum = torch.zeros([], dtype=A.dtype, device=A.device)
+
+    # For each permutation sigma of {0,1,...,n-1}, multiply together A[i, sigma[i]] for i in [0..n-1].
     for sigma in itertools.permutations(range(n)):
-        prod = 1.0 + 0.0j
+        product_term = torch.tensor(1.0, dtype=A.dtype, device=A.device)
         for i in range(n):
-            prod *= A[i, sigma[i]]
-        perm_sum += prod
+            product_term = product_term * A[i, sigma[i]]
+        perm_sum = perm_sum + product_term
+
     return perm_sum
 
 def get_submatrix(U, input_modes, output_modes):
@@ -80,76 +85,56 @@ def get_submatrix(U, input_modes, output_modes):
     """
     return U[np.ix_(input_modes, output_modes)]
 
-def advanced_nonlinearity_factor(output_modes, m, alpha, beta):
+def kerr_phase_factor(output_modes, m, chi):
     """
-    Compute a nonlinearity factor based on photon counts in output modes.
-
-    This factor is computed as the product over modes of (1/(1 + alpha * n))^beta,
-    where n is the number of photons in a mode.
-
-    Parameters:
-        output_modes (array-like): Array of output mode indices.
-        m (int): Total number of modes.
-        alpha (float): Nonlinearity parameter.
-        beta (float): Exponent applied to the nonlinearity factor.
-
-    Returns:
-        float: The computed nonlinearity factor.
+    Compute a Kerr phase factor based on the photon counts in output modes.
+    
+    Each mode contributes a factor exp(-1j * chi * n * (n-1)),
+    where n is the photon number in that mode.
     """
     counts = np.bincount(output_modes, minlength=m)
-    factor = np.prod([(1 / (1 + alpha * n))**beta for n in counts])
-    return factor
+    factors = [np.exp(-1j * chi * n * (n - 1)) for n in counts]
+    return factors
 
-def boson_sampling_probability_advanced(U, input_modes, output_modes, effective_mu, m, alpha, beta):
-    """
-    Compute the boson sampling probability using an advanced nonlinearity model.
-
-    The probability is computed as a weighted sum of the quantum (permanent-based) and
-    classical probabilities, with the quantum term modulated by an advanced nonlinearity factor.
-
-    Parameters:
-        U (np.ndarray): The unitary matrix representing the system.
-        input_modes (array-like): Indices of input modes.
-        output_modes (array-like): Indices of output modes.
-        effective_mu (float): Weighting factor between quantum and classical contributions.
-        m (int): Total number of modes.
-        alpha (float): Nonlinearity parameter alpha.
-        beta (float): Nonlinearity parameter beta.
-
-    Returns:
-        float: The computed boson sampling probability.
-    """
+def boson_sampling_probability(U, input_modes, output_modes, effective_mu, m):
     if len(input_modes) == 0 or len(output_modes) == 0:
         return 0
     U_sub = get_submatrix(U, input_modes, output_modes)
-    permanent_val = compute_permanent(U_sub)
+
+    A_sub_torch = torch.tensor(U_sub, dtype=torch.complex64)
+    permanent_val = compute_permanent(A_sub_torch)
+
     classical_probability = np.prod(np.abs(U_sub)**2)
-    nl_factor = advanced_nonlinearity_factor(output_modes, m, alpha, beta)
-    probability = effective_mu * np.abs(nl_factor * permanent_val)**2 + (1 - effective_mu) * classical_probability
+
+    # Convert permanent to numpy complex
+    permanent_val_np = permanent_val.detach().cpu().numpy()  # shape (), complex
+
+    # Compute probs
+    probability = effective_mu * np.abs(permanent_val_np)**2 + (1 - effective_mu) * classical_probability
+
     return probability
 
-def boson_sampling_probability(U, input_modes, output_modes, effective_mu):
-    """
-    Compute the boson sampling probability using a weighted sum of quantum and classical contributions.
-
-    The quantum contribution is based on the permanent of a submatrix of U, while the classical
-    contribution is computed as the product of squared magnitudes of the matrix elements.
-
-    Parameters:
-        U (np.ndarray): The unitary matrix.
-        input_modes (array-like): Indices of input modes.
-        output_modes (array-like): Indices of output modes.
-        effective_mu (float): Weighting factor for the quantum contribution.
-
-    Returns:
-        float: The computed probability.
-    """
+def boson_sampling_probability_advanced(U, input_modes, output_modes, effective_mu, m, chi):
     if len(input_modes) == 0 or len(output_modes) == 0:
         return 0
     U_sub = get_submatrix(U, input_modes, output_modes)
-    permanent = compute_permanent(U_sub)
+
+    A_sub_torch = torch.tensor(U_sub, dtype=torch.complex64)
+    permanent_val = compute_permanent(A_sub_torch)
+
     classical_probability = np.prod(np.abs(U_sub)**2)
-    probability = effective_mu * np.abs(permanent)**2 + (1 - effective_mu) * classical_probability
+
+    # Kerr Phase Factors
+    nl_factor_list = kerr_phase_factor(output_modes, m, chi)  
+    nl_factor_val = np.prod(nl_factor_list)  # single scalar
+
+    # Convert permanent to numpy complex
+    permanent_val_np = permanent_val.detach().cpu().numpy()  # shape (), complex
+
+    # Compute probs
+    combined_val = nl_factor_val * permanent_val_np
+    probability = effective_mu * np.abs(combined_val)**2 + (1 - effective_mu) * classical_probability
+
     return probability
 
 def sample_input_state(m, num_sources, input_loss, coupling_efficiency, detector_inefficiency, multi_photon_prob):
@@ -207,7 +192,7 @@ def boson_sampling_simulation(
     mu, temporal_mismatch, spectral_mismatch, arrival_time_jitter,
     bs_loss, bs_jitter, phase_noise_std, systematic_phase_offset, mode_loss,
     dark_count_rate,
-    use_advanced_nonlinearity=False, alpha_nl=0.0, beta_nl=0.0
+    use_advanced_nonlinearity=False, chi=0
 ):
     """
     Run multiple boson sampling simulation loops and return the average transition probability.
@@ -238,8 +223,7 @@ def boson_sampling_simulation(
         mode_loss (np.ndarray): Mode-dependent loss factors.
         dark_count_rate (float): Dark count rate per mode.
         use_advanced_nonlinearity (bool, optional): If True, use the advanced nonlinearity model. Defaults to False.
-        alpha_nl (float, optional): Advanced nonlinearity parameter alpha. Defaults to 0.0.
-        beta_nl (float, optional): Advanced nonlinearity parameter beta. Defaults to 0.0.
+        chi (float): Entanglement strength. Default 0.0
 
     Returns:
         float: The average transition probability over all simulation loops.
@@ -257,7 +241,7 @@ def boson_sampling_simulation(
         output_modes = np.random.choice(m, interfering_count, replace=True)
         if use_advanced_nonlinearity:
             probability = boson_sampling_probability_advanced(U, input_modes, output_modes,
-                                                               effective_mu, m, alpha_nl, beta_nl)
+                                                               effective_mu, m, chi)
         else:
             probability = boson_sampling_probability(U, input_modes, output_modes, effective_mu)
         probability = apply_dark_counts(probability, m, dark_count_rate)
@@ -293,8 +277,7 @@ class BosonSamplerTorch(nn.Module):
         mode_loss (np.ndarray): Array of mode-dependent loss factors.
         dark_count_rate (float): Dark count rate per mode.
         use_advanced_nonlinearity (bool): Flag to use the advanced nonlinearity model.
-        alpha_nl (float): Nonlinearity parameter alpha.
-        beta_nl (float): Nonlinearity parameter beta.
+        chi (float): Entanglement Strength. Default 0.0
     """
     def __init__(self,
                  m: int,
@@ -315,8 +298,7 @@ class BosonSamplerTorch(nn.Module):
                  mode_loss: np.ndarray,
                  dark_count_rate: float,
                  use_advanced_nonlinearity: bool = False,
-                 alpha_nl: float = 0.0,
-                 beta_nl: float = 0.0):
+                 chi: float = 0.0):
         super(BosonSamplerTorch, self).__init__()
         self.m = m
         self.num_sources = num_sources
@@ -337,8 +319,7 @@ class BosonSamplerTorch(nn.Module):
         self.mode_loss = mode_loss
         self.dark_count_rate = dark_count_rate
         self.use_advanced_nonlinearity = use_advanced_nonlinearity
-        self.alpha_nl = alpha_nl
-        self.beta_nl = beta_nl
+        self.chi = chi
 
     def forward(self, batch_size: int):
         """
@@ -358,7 +339,7 @@ class BosonSamplerTorch(nn.Module):
             self.mu, self.temporal_mismatch, self.spectral_mismatch, self.arrival_time_jitter,
             self.bs_loss, self.bs_jitter, self.phase_noise_std, phase_offset, self.mode_loss,
             self.dark_count_rate,
-            self.use_advanced_nonlinearity, self.alpha_nl, self.beta_nl
+            self.use_advanced_nonlinearity, self.chi
         )
         # Return the scalar probability as a tensor replicated over the batch dimension.
         result = torch.tensor(avg_probability, dtype=torch.float32, device=self.systematic_phase_offset.device)

@@ -56,8 +56,7 @@ def main(cfg: DictConfig):
             mode_loss=np.ones(latent_dim),
             dark_count_rate=0,
             use_advanced_nonlinearity=False,
-            alpha_nl=0,
-            beta_nl=0
+            chi=1
         )
         print(">> Using Boson Sampler as prior.")
 
