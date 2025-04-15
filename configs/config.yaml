@@ -14,6 +14,12 @@ hyperparameters:
   model_type: "vae" # "vae", "transformer" or "gan"
   gan_output_size: 512
   boson_sampler_params: "false"
+  # Select the type of boson sampler ("ptseries" or "custom") when boson_sampler_params is not "false"
+  boson_sampler_type: "ptseries"  # Options: "ptseries" or "custom"
+  # (Optional) Only relevant for GraphVAE: set to true to include boson sampler parameters
+  graphvae_include_boson: false
+
+  
   pretrain_gen_epochs: 200
   pretrain_disc_epochs: 50
   #gen_checkpoint_path: "model_checkpoints/generator_epoch_3000.pt"
