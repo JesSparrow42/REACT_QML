@@ -8,11 +8,11 @@ from torch import nn
 import torch.nn.functional as F
 from torch.distributions import Distribution
 from ptseries.models import PTGenerator  # your boson generator
-from utils import BosonPrior, ReparameterizedDiagonalGaussian, save_images, dice_loss, plot_molecule  # and any other helper functions as needed
-from models.vae import VariationalAutoencoder, VariationalInference
-from models.gan import Generator, Discriminator
-from models.unet import UNetGenerator
-from models.graphvae import GraphVAE
+from GenAI.utils import BosonPrior, ReparameterizedDiagonalGaussian, save_images, dice_loss, plot_molecule  # and any other helper functions as needed
+from GenAI.models.vae import VariationalAutoencoder, VariationalInference
+from GenAI.models.gan import Generator, Discriminator
+from GenAI.models.unet import UNetGenerator
+from GenAI.models.graphvae import GraphVAE
 
 ### To do
 # Parameter shift rule?

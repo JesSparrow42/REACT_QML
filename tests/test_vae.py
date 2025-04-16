@@ -2,11 +2,11 @@ import os
 import pytest
 import torch
 import numpy as np
+import torch
 from torch import nn
 from torch.distributions import Distribution
 
-# Import your VAE modules from your repository.
-# Adjust the import paths as necessary.
+# Import your VAE modules from your repository.# Adjust the import paths as necessary.
 from GenAI.models.vae import VariationalAutoencoder, VariationalInference
 
 # You may need to adjust the import path below to reference the actual location.
@@ -45,47 +45,54 @@ def test_vae_forward_without_boson_sampler(input_shape, latent_features, batch_s
     assert outputs['z'].shape[0] == batch_size
     assert outputs['z'].shape[1] == latent_features
 
-def test_vae_forward_with_boson_sampler(input_shape, latent_features, monkeypatch):
+
+@pytest.mark.parametrize("batch_size", [4, 8])
+def test_vae_forward_with_boson_sampler(input_shape, latent_features, batch_size, monkeypatch):
     """
-    Test the forward pass when a boson sampler is provided.
-    Use monkeypatch to override the boson sampler creation so that a dummy sampler is used.
+    Test the forward pass of the VAE when a boson sampler is provided.
+    We override the __init__ and forward methods of BosonLatentGenerator (from GenAI.BosonSamplerWrapper)
+    so that no super() calls occur and a dummy behavior is used.
     """
-    # Define a dummy boson sampler that does nothing but allows forward to complete.
-    class DummyBosonSampler:
-        def __init__(self, latent_features, boson_sampler_params):
-            self.latent_features = latent_features
+    # Dummy __init__: bypass the original constructor.
+    def dummy_init(self, latent_features, boson_sampler_params):
+        # Directly initialize the nn.Module without invoking the problematic super call.
+        nn.Module.__init__(self)
+        self.latent_features = latent_features
 
-        # When used in the prior, the BosonPrior wrapper will call this sampler.
-        def __call__(self, *args, **kwargs):
-            # Return a dummy distribution (e.g., a standard Normal) with the proper shape.
-            batch_size = kwargs.get('batch_size', 1)
-            return torch.distributions.Normal(
-                torch.zeros(batch_size, self.latent_features),
-                torch.ones(batch_size, self.latent_features)
-            )
+    # Dummy forward: return a normal distribution with the proper shape.
+    def dummy_forward(self, *args, **kwargs):
+        bs = kwargs.get('batch_size', 1)
+        return torch.distributions.Normal(
+            torch.zeros(bs, self.latent_features),
+            torch.ones(bs, self.latent_features)
+        )
+    
+    # Monkey-patch the __init__ and forward of the BosonLatentGenerator in the GenAI.BosonSamplerWrapper module.
+    monkeypatch.setattr("GenAI.BosonSamplerWrapper.BosonLatentGenerator.__init__", dummy_init)
+    monkeypatch.setattr("GenAI.BosonSamplerWrapper.BosonLatentGenerator.forward", dummy_forward)
 
-    # Monkey-patch the BosonLatentGenerator constructor.
-    def dummy_boson_latent_generator(latent_features, boson_sampler_params):
-        return DummyBosonSampler(latent_features, boson_sampler_params)
-
-    monkeypatch.setattr("BosonSamplerWrapper.BosonLatentGenerator", dummy_boson_latent_generator)
-
-    # Provide dummy parameters (the content doesn't matter since we override the generator).
+    # Provide dummy parameters (their content won’t affect our dummy).
     dummy_params = {"dummy_key": 1}
+
+    # Instantiate the VAE with boson_sampler_params so that the branch is taken.
     vae = VariationalAutoencoder(
         input_shape=input_shape,
         latent_features=latent_features,
         boson_sampler_params=dummy_params
     )
-    # Check that the boson sampler was set.
+
+    # Ensure the boson sampler was initialized.
     assert vae.boson_sampler is not None, "Boson sampler should be initialized when parameters are provided."
-    batch_size = 4
+
+    # Create a dummy batch.
     x = torch.randn(batch_size, *input_shape)
     outputs = vae(x)
-    # Validate output structure.
+
+    # Verify that the output contains the expected keys.
     for key in ['px', 'pz', 'qz', 'z']:
         assert key in outputs, f"Missing key '{key}' in forward output with boson sampler."
-    # Check latent space shape.
+
+    # Verify that the latent output 'z' has the expected shape.
     assert outputs['z'].shape == (batch_size, latent_features)
 
 def test_observation_model(input_shape, latent_features):

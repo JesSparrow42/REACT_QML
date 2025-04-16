@@ -11,5 +11,8 @@ authors = [
 ]
 dependencies = []
 
+[tool.setuptools]
+packages = ["ptseries"]
+
 [tool.pytest.ini_options]
 filterwarnings = ["error", "ignore::UserWarning"]

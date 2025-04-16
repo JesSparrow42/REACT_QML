@@ -17,14 +17,13 @@ class Generator(nn.Module):
         self.output_size = output_size
 
         self.fc = nn.Sequential(
-            nn.Linear(latent_dim, 512 * 8* 8),
+            nn.Linear(latent_dim, 512 * 8 * 8),
             nn.ReLU(inplace=True)
         )
 
-        self.dec1 = self.conv_block(512, 256) # 8 -> 16
-        self.dec2 = self.conv_block(256, 128) # 16 -> 32
-        self.dec3 = self.conv_block(128, 64) # 32 -> 64
-        self.final = nn.ConvTranspose2d(64, 1, kernel_size=4, stride=2, padding=1)
+        self.dec1 = self.conv_block(512, 256)  # 8 -> 16
+        self.dec2 = self.conv_block(256, 128)  # 16 -> 32
+        self.final = nn.ConvTranspose2d(128, 1, kernel_size=4, stride=2, padding=1)  # 32 -> 64
 
     def conv_block(self, in_channels, out_channels):
         return nn.Sequential(
@@ -35,31 +34,31 @@ class Generator(nn.Module):
     def forward(self, z):
         x = self.fc(z)
         x = x.view(-1, 512, 8, 8)
-        x = self.dec1(x)
-        x = self.dec2(x)
-        x = self.dec3(x)
-        x = self.final(x)
+        x = self.dec1(x)  # 16x16
+        x = self.dec2(x)  # 32x32
+        x = self.final(x) # 64x64
         return torch.sigmoid(x)
 
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
-        self.model = nn.Sequential(
-             nn.ZeroPad2d(2),
-             nn.Conv2d(1, 32, kernel_size=4, stride=2, padding=1, bias=False), # 128 -> 64
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1, bias=False), # 64 -> 32
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1, bias=False), # 32 -> 16
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1, bias=False), # 16 -> 8
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1, bias=False), # 8 -> 4
-             nn.LeakyReLU(0.2, inplace=True),
-             nn.Conv2d(512, 1, kernel_size=4, stride=1, padding=0, bias=False), # 4 -> 1
-         )
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=4, stride=2, padding=1, bias=False),  # 64 -> 32
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1, bias=False), # 32 -> 16
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1, bias=False), # 16 -> 8
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1, bias=False), # 8 -> 4
+            nn.LeakyReLU(0.2, inplace=True),
+            nn.Conv2d(256, 512, kernel_size=4, stride=1, padding=0, bias=False), # 4 -> 1
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        # Add this final conv to reduce to 1 channel
+        self.final = nn.Conv2d(512, 1, kernel_size=1)
 
     def forward(self, x):
         x = x.to(torch.float32)
-        # Remove singleton dimensions from output
-        return self.model(x).squeeze()
+        x = self.features(x)  # shape: (batch_size, 512, 1, 1)
+        x = self.final(x)     # shape: (batch_size, 1, 1, 1)
+        return x.view(-1)     # returns (batch_size,)

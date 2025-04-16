@@ -5,8 +5,9 @@ import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 from torch import nn
 import torch.nn.functional as F
+from GenAI.utils import BosonPrior, ReparameterizedDiagonalGaussian
 from ptseries.models import PTGenerator  # Use PTGenerator instead of BosonLatentGenerator
-from BosonSamplerWrapper import BosonLatentGenerator
+from GenAI.BosonSamplerWrapper import BosonLatentGenerator, BosonSamplerTorch
 
 class GraphVAE(nn.Module):
     def __init__(self, latent_features: int, max_nodes: int, boson_sampler_params: dict = None, node_feature_dim: int = 1,
