@@ -7,9 +7,10 @@ import datetime
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision import transforms
 from torchvision.transforms import ToPILImage
+import trimesh
 import pydicom
 from pydicom import dcmread
 from pydicom.dataset import FileDataset
@@ -447,3 +448,159 @@ class QM9DataModule(pl.LightningDataModule):
             collate_fn=lambda batch: collate_graph_vae(batch, global_max=self.global_max),
             shuffle=False
         )
+
+###############################################################################
+# REACT data
+###############################################################################
+
+
+def _load_measurements(csv_path: str) -> pd.DataFrame:
+    """
+    Load and parse the custom measurements CSV, flatten multi-index columns,
+    and return a numeric DataFrame.
+    """
+    # Read raw lines (adjust encoding if needed)
+    with open(csv_path, 'r', encoding='utf-16') as f:
+        lines = f.read().splitlines()
+
+    # Skip metadata (first 4 lines)
+    data_lines = lines[4:]
+    # Split the next three lines into names, ids, and values
+    split_lines = [data_lines[i].split('\t') for i in range(3)]
+    names, ids, vals = split_lines
+
+    # Construct multi-index DataFrame
+    cols = pd.MultiIndex.from_arrays([names, ids])
+    df = pd.DataFrame([vals], columns=cols)
+
+    # Flatten and convert to numeric
+    df_flat = df.copy()
+    df_flat.columns = [f"{name}_{id}" for name, id in df.columns]
+    df_numeric = df_flat.astype(float)
+    return df_numeric
+
+
+class MeasurementsMeshDataset(Dataset):
+    """
+    Dataset pairing measurement vectors with 3D meshes.
+    Assumes that the CSV and the mesh files are aligned by filename or sorted order.
+    """
+    def __init__(
+        self,
+        csv_path: str,
+        mesh_dir: str,
+        mesh_ext: str = '.ply',
+        transform_matrix: np.ndarray | None = None
+    ):
+        self.measurements = _load_measurements(csv_path)
+        # List and sort mesh files
+        self.mesh_paths = sorted(
+            [os.path.join(mesh_dir, f)
+             for f in os.listdir(mesh_dir)
+             if f.lower().endswith(mesh_ext)]
+        )
+        assert len(self.measurements) == len(self.mesh_paths), \
+            "Number of measurement rows must equal number of mesh files."
+        self.transform = transform_matrix
+
+    def __len__(self) -> int:
+        return len(self.measurements)
+
+    def __getitem__(self, idx: int) -> tuple[torch.Tensor, dict]:
+        # Measurements vector
+        meas = torch.tensor(
+            self.measurements.iloc[idx].values,
+            dtype=torch.float32
+        )
+        # Load mesh with trimesh
+        mesh = trimesh.load(self.mesh_paths[idx], process=False)
+        if self.transform is not None:
+            mesh.apply_transform(self.transform)
+
+        # Convert mesh to torch Tensors
+        vertices = torch.tensor(mesh.vertices, dtype=torch.float32)
+        faces = torch.tensor(mesh.faces, dtype=torch.long)
+
+        return meas, {'vertices': vertices, 'faces': faces}
+
+
+class ReactDataModule(pl.LightningDataModule):
+    """
+    LightningDataModule for measurements + mesh data.
+
+    Args:
+        csv_path: Path to the measures.csv file
+        mesh_dir: Directory containing mesh files
+        batch_size: Batch size for DataLoader
+        val_split: Fraction of data for validation (e.g. 0.2)
+        test_split: Fraction of data for testing (e.g. 0.1)
+        mesh_ext: File extension for meshes (default: .ply)
+        transform_matrix: Optional 4x4 transform to apply to all meshes
+        num_workers: Number of workers for DataLoader
+    """
+    def __init__(
+        self,
+        csv_path: str,
+        mesh_dir: str,
+        batch_size: int = 32,
+        val_split: float = 0.2,
+        test_split: float = 0.1,
+        mesh_ext: str = '.ply',
+        transform_matrix: np.ndarray | None = None,
+        num_workers: int = 4
+    ):
+        super().__init__()
+        self.csv_path = csv_path
+        self.mesh_dir = mesh_dir
+        self.batch_size = batch_size
+        self.val_split = val_split
+        self.test_split = test_split
+        self.mesh_ext = mesh_ext
+        self.transform_matrix = transform_matrix
+        self.num_workers = num_workers
+
+    def setup(self, stage: str | None = None):
+        # Full dataset
+        full = MeasurementsMeshDataset(
+            csv_path=self.csv_path,
+            mesh_dir=self.mesh_dir,
+            mesh_ext=self.mesh_ext,
+            transform_matrix=self.transform_matrix
+        )
+        n = len(full)
+        n_test = int(n * self.test_split)
+        n_val = int(n * self.val_split)
+        n_train = n - n_val - n_test
+
+        self.train_dataset, self.val_dataset, self.test_dataset = random_split(
+            full,
+            [n_train, n_val, n_test]
+        )
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=True
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True
+        )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=True
+        )
+
