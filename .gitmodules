@@ -1,3 +1,6 @@
 [submodule "nonlinear-photonic-sampler"]
 	path = nonlinear-photonic-sampler
 	url = git@github.com:SparrowQuantum/nonlinear-photonic-sampler.git
+[submodule "external/edm"]
+	path = external/edm
+	url = https://github.com/ehoogeboom/e3_diffusion_for_molecules.git
