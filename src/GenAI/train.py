@@ -18,7 +18,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 # Import your data modules and models
-from data import MedicalDataModule, QM9DataModule, AtomsData
+from data import MedicalDataModule, QM9DataModule, AtomsData, ReactDataModule
 from model import GAN_Lightning, VAE_Lightning, DiffusionLightning, UNetLightning, GraphVAE_Lightning
 # Import the custom boson sampler (only needed for the custom option)
 from BosonSamplerWrapper import BosonLatentGenerator, BosonSamplerTorch
@@ -114,6 +114,18 @@ def main(cfg: DictConfig):
             ct_folder=cfg.hyperparameters.ct_folder,
             pet_folder=cfg.hyperparameters.pet_folder,
             batch_size=cfg.hyperparameters.batch_size
+        )
+    elif datamodule_type == "react":
+        print(">> Using React DataModule.")
+        data_module = ReactDataModule(
+            csv_path=cfg.hyperparameters.react_csv_path,
+            mesh_dir=cfg.hyperparameters.react_mesh_dir,
+            batch_size=cfg.hyperparameters.get("batch_size", 32),
+            val_split=cfg.hyperparameters.get("react_val_split", 0.2),
+            test_split=cfg.hyperparameters.get("react_test_split", 0.1),
+            mesh_ext=cfg.hyperparameters.get("react_mesh_ext", ".ply"),
+            transform_matrix=cfg.hyperparameters.get("react_transform_matrix", None),
+            num_workers=cfg.hyperparameters.get("react_num_workers", 4)
         )
     else:
         raise ValueError(f"Unknown datamodule type: {datamodule_type}")

@@ -19,7 +19,7 @@ hyperparameters:
   # (Optional) Only relevant for GraphVAE: set to true to include boson sampler parameters
   graphvae_include_boson: false
 
-  
+
   pretrain_gen_epochs: 200
   pretrain_disc_epochs: 50
   #gen_checkpoint_path: "model_checkpoints/generator_epoch_3000.pt"
